@@ -7,6 +7,8 @@ BEGIN TRY
 	DROP TABLE IF EXISTS Masini;
 	DROP TABLE IF EXISTS Clienti;
 	DROP TABLE IF EXISTS MarciAuto;
+	DROP VIEW IF EXISTS ClientContactInfo;
+	DROP PROCEDURE IF EXISTS InsertClient;
 END TRY
 BEGIN CATCH
 	PRINT 'Eroare la stergerea tabelelor: ' + ERROR_MESSAGE();
@@ -31,8 +33,8 @@ CREATE TABLE Telefon(
 Cod_Telefon INT PRIMARY KEY IDENTITY(1,1),
 Cod_Client INT,
 NrTel VARCHAR(10),
-FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
-CONSTRAINT CK_Telefon CHECK (NrTel LIKE '09[0-9]{8}' AND LEN(NrTel) = 10));
+FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
+--CONSTRAINT CK_Telefon CHECK (NrTel LIKE '07[0-9]{8}' AND LEN(NrTel) = 10));
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
@@ -131,3 +133,66 @@ END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului IstoricService' + ERROR_MESSAGE();
 END CATCH;
+
+/*INSERT INTO Clienti (Nume, Prenume, Email, Activ)
+VALUES 
+('Popescu', 'Ion', 'ion.popescu@example.com', 1),
+('Ionescu', 'Maria', 'maria.ionescu@example.com', 1),
+('Georgescu', 'Vasile', 'vasile.georgescu@example.com', 1),
+('Dumitrescu', 'Elena', NULL, 1),
+('Stan', 'Mihai', NULL, 1);
+GO
+
+
+INSERT INTO Telefon (Cod_Client, NrTel)
+VALUES 
+(1, '0712345678'), 
+(1, '0723456789'), 
+(3, '0734567890'), 
+(4, '0745678901'), 
+(5, '0756789012')  
+GO
+*/
+
+GO
+CREATE VIEW ClientContactInfo AS SELECT c.Nume, c.Prenume, c.Email, t.NrTel, c.Activ FROM Clienti c
+LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client;
+GO
+
+
+GO
+CREATE PROCEDURE InsertClient
+@Nume VARCHAR(30),
+@Prenume VARCHAR(30),
+@Email VARCHAR(50) = NULL,
+@NrTel VARCHAR(50) = NULL,
+@Activ BIT = 1
+AS
+BEGIN
+	BEGIN TRANSACTION;
+	BEGIN TRY
+		INSERT INTO Clienti (Nume, Prenume, Email, Activ) VALUES (@Nume, @Prenume, @Email, @Activ);
+		DECLARE @Cod_Client INT;
+		SET @Cod_Client = SCOPE_IDENTITY();
+
+		IF @NrTel IS NOT NULL
+		BEGIN
+			INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, @NrTel);
+		END
+		IF (@Email IS NULL AND @NrTel IS NULL)
+		BEGIN;
+			THROW 50001, 'Trebuie furnizat cel putin un email sau un numar de telefon', 1;
+		END
+		COMMIT TRANSACTION;
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION;
+		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
+	END CATCH;
+END
+GO
+
+EXEC InsertClient @Nume = 'Popescu', @Prenume = 'Ion', @Email = 'ion.popescu@gmail.com', @NrTel = '0712345678';
+EXEC InsertClient @Nume = 'Georgescu', @Prenume = 'Vasile', @Email = 'vasile.georgescu@gmail.com';
+EXEC InsertClient @Nume = 'Stan', @Prenume = 'Mihai';
+SELECT * FROM ClientContactInfo;
