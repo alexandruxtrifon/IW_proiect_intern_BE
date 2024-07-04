@@ -1,3 +1,5 @@
+const sql = require('mssql');
+
 const config = {
     server: 'DATASRV\\SQL2019',
     user: 'user_internship2024',
@@ -9,4 +11,14 @@ const config = {
     }
 };
 
-module.exports = config;
+const poolPromise = new sql.ConnectionPool(config)
+.connect().then(pool => {
+    console.log('S-a stabilit conexiunea la SQL');
+    return pool;
+})
+.catch(err => {
+    console.error('Conexiunea la SQL Server a esuat');
+    process.exit(1);
+});
+
+module.exports = {sql, poolPromise};

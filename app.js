@@ -1,9 +1,16 @@
 const express = require('express');
 const sql = require('mssql');
 const config = require('./config');
+const bodyParser = require('body-parser');
+
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
+
+const routesClienti = require('./routes/clienti');
+
+
+app.use('/api/clienti', routesClienti);
 
 app.get('/api/contact', async (req, res) => { 
     try{
@@ -24,7 +31,7 @@ app.get('/api/contact', async (req, res) => {
 
 }) ;
 
-app.post('/api/post/client', async (req, res) => {
+/*app.post('/api/post/clienti', async (req, res) => {
     const {Nume, Prenume, Email, NrTel1, NrTel2, Activ } = req.body;
     try{
         await sql.connect(config);
@@ -49,7 +56,7 @@ app.post('/api/post/client', async (req, res) => {
             error: err.message
         });
     }
-});
+});*/
 
 app.get('/api/test', async (req, res) => {
     try {
@@ -68,7 +75,7 @@ app.get('/api/test', async (req, res) => {
       });
     }
   });
-//hhkgcs
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT,console.log(
     `Server started on port ${PORT}`));
