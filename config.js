@@ -3,7 +3,7 @@ const sql = require('mssql');
 const config = {
     server: 'DATASRV\\SQL2019',
     user: 'user_internship2024',
-    password: 'SarmalutaUcigasa3',
+    password: 'CdSnqP9Y`%8ZE!>@D?',
     instancename: 'SQLEXPRESS',
     options: {
         database: 'internship2024',
