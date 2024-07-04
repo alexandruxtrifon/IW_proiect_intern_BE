@@ -254,12 +254,12 @@ ALTER TABLE Clienti
 ADD NrTel1 VARCHAR(10), NrTel2 VARCHAR(10);
 
 ALTER TABLE Clienti
-ADD CONSTRAINT CK_Telefon UNIQUE (NrTel1, NrTel2),
-    CONSTRAINT CK_TelefonFormat CHECK (
+ADD CONSTRAINT CK_Telefon UNIQUE (NrTel1, NrTel2);
+GO
+ALTER TABLE Clienti
+ADD CONSTRAINT CK_TelefonFormat CHECK (
         (NrTel1 IS NULL OR (NrTel1 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
-        (NrTel2 IS NULL OR (NrTel2 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
-        (NrTel1 IS NULL OR NrTel2 IS NULL OR NrTel1 <> NrTel2)
-    );
+        (NrTel2 IS NULL OR (NrTel2 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')));
 
 GO
 CREATE OR ALTER PROCEDURE InsertClient2
@@ -302,5 +302,6 @@ EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com';
 EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel2 = '0712345678';
 EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn';
+EXEC InsertClient2 @Nume = 'Popesco', @Prenume = 'Cristi', @NrTel1 = '0712345678', @NrTel2 = '0712345678';
 SELECT * FROM Clienti;
 SELECT * FROM ClientContactInfo;
