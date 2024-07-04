@@ -155,11 +155,6 @@ VALUES
 GO
 */
 
-GO
-CREATE VIEW ClientContactInfo AS SELECT c.Nume, c.Prenume, c.Email, t.NrTel, c.Activ FROM Clienti c
-LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client;
-GO
-
 
 GO
 CREATE PROCEDURE InsertClient
@@ -253,10 +248,59 @@ GO
 --EXEC InsertClient @Nume = 'Georgescu', @Prenume = 'Vasile', @Email = 'vasile.georgescu@gmail.com';
 --EXEC InsertClient @Nume = 'Stan', @Prenume = 'Mihai';
 --SELECT * FROM ClientContactInfo;
+
+DROP TABLE Telefon;
+ALTER TABLE Clienti
+ADD NrTel1 VARCHAR(10), NrTel2 VARCHAR(10);
+
+ALTER TABLE Clienti
+ADD CONSTRAINT CK_Telefon UNIQUE (NrTel1, NrTel2),
+    CONSTRAINT CK_TelefonFormat CHECK (
+        (NrTel1 IS NULL OR (NrTel1 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
+        (NrTel2 IS NULL OR (NrTel2 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
+        (NrTel1 IS NULL OR NrTel2 IS NULL OR NrTel1 <> NrTel2)
+    );
+
+GO
+CREATE OR ALTER PROCEDURE InsertClient2
+@Nume VARCHAR(30),
+@Prenume VARCHAR(30),
+@Email VARCHAR(50) = NULL,
+@NrTel1 VARCHAR(10) = NULL,
+@NrTel2 VARCHAR(10) = NULL,
+@Activ BIT = 1
+AS
+BEGIN
+	SET NOCOUNT ON;
+	BEGIN TRANSACTION;
+	BEGIN TRY
+		IF (@Email IS NULL AND @NrTel1 IS NULL AND @NrTel2 IS NULL)
+		BEGIN;
+			THROW 50001, 'Este nevoie de cel putin un email sau un numar de telefon: ', 1;
+		END
+
+		INSERT INTO Clienti (Nume, Prenume, Email, NrTel1, NrTel2, Activ)
+		VALUES (@Nume, @Prenume, @Email, @NrTel1, @NrTel2, @Activ);
+
+		COMMIT TRANSACTION;
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION;
+		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
+	END CATCH;
+END
+GO
+
+GO
+CREATE VIEW ClientContactInfo AS SELECT c.Nume, c.Prenume, c.Email, c.NrTel1, c.NrTel2, c.Activ FROM Clienti c;
+--LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client;
+GO
+
+
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 'stan.mihai@gmail.com', @NrTel1 = '0712345688', @NrTel2 = '0712347678';
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel2 = '0712345578';
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com';
 EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel2 = '0712345678';
-
+EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn';
 SELECT * FROM Clienti;
 SELECT * FROM ClientContactInfo;
