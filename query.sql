@@ -9,6 +9,7 @@ BEGIN TRY
 	DROP TABLE IF EXISTS MarciAuto;
 	DROP VIEW IF EXISTS ClientContactInfo;
 	DROP PROCEDURE IF EXISTS InsertClient;
+	DROP PROCEDURE IF EXISTS InsertClient2;
 END TRY
 BEGIN CATCH
 	PRINT 'Eroare la stergerea tabelelor: ' + ERROR_MESSAGE();
@@ -192,7 +193,70 @@ BEGIN
 END
 GO
 
-EXEC InsertClient @Nume = 'Popescu', @Prenume = 'Ion', @Email = 'ion.popescu@gmail.com', @NrTel = '0712345678';
-EXEC InsertClient @Nume = 'Georgescu', @Prenume = 'Vasile', @Email = 'vasile.georgescu@gmail.com';
-EXEC InsertClient @Nume = 'Stan', @Prenume = 'Mihai';
+CREATE PROCEDURE InsertClient2
+@Nume VARCHAR(30),
+@Prenume VARCHAR(30),
+@Email VARCHAR(50) = NULL,
+@NrTel1 VARCHAR(10) = NULL,
+@NrTel2 VARCHAR(10) = NULL,
+@Activ BIT = 1
+AS
+BEGIN
+	BEGIN TRANSACTION;
+	BEGIN TRY
+		INSERT INTO Clienti (Nume, Prenume, Email, Activ)
+		VALUES (@Nume, @Prenume, @Email, @Activ);
+		DECLARE @Cod_Client INT;
+		SET @Cod_Client = SCOPE_IDENTITY();
+		IF @NrTel1 IS NOT NULL
+		BEGIN
+			INSERT INTO Telefon (Cod_Client, NrTel)
+			VALUES (@Cod_Client, @NrTel1);
+		END
+		IF @NrTel2 IS NOT NULL
+		BEGIN 
+			INSERT INTO Telefon (Cod_Client, NrTel)
+			VALUES (@Cod_Client, @NrTel2);
+		END
+
+		IF (@Email IS NULL AND @NrTel1 IS NULL AND @NrTel2 IS NULL)
+		BEGIN;
+			THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
+		END
+		IF (@Email IS NOT NULL AND @NrTel1 IS NULL OR @NrTel2 IS NULL)
+		BEGIN;
+			EXEC InsertClient @Nume, @Prenume, @Email, @NrTel1;
+			PRINT 'Email-ok Telefon-null';
+		END
+		IF (@Email IS NULL AND @NrTel1 IS NOT NULL OR @NrTel2 IS NULL)
+		BEGIN;
+			EXEC InsertClient @Nume, @Prenume, @Email, @NrTel1;
+			PRINT 'Email-null Telefon1-ok';
+		END
+		IF (@Email IS NULL AND @NrTel1 IS NULL OR @NrTel2 IS NOT NULL)
+		BEGIN;
+			EXEC InsertClient @Nume, @Prenume, @Email, @NrTel2;
+			PRINT 'Email-null Telefon2-ok';
+		END
+
+		COMMIT TRANSACTION;
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION;
+		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
+	END CATCH;
+END
+GO
+	
+
+--EXEC InsertClient @Nume = 'Popescu', @Prenume = 'Ion', @Email = 'ion.popescu@gmail.com', @NrTel = '0712345678';
+--EXEC InsertClient @Nume = 'Georgescu', @Prenume = 'Vasile', @Email = 'vasile.georgescu@gmail.com';
+--EXEC InsertClient @Nume = 'Stan', @Prenume = 'Mihai';
+--SELECT * FROM ClientContactInfo;
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 'stan.mihai@gmail.com', @NrTel1 = '0712345688', @NrTel2 = '0712347678';
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel2 = '0712345578';
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com';
+EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel2 = '0712345678';
+
+SELECT * FROM Clienti;
 SELECT * FROM ClientContactInfo;
