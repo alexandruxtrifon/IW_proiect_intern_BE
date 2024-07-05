@@ -81,8 +81,9 @@ KWh DECIMAL(5,2),
 Activ BIT NOT NULL DEFAULT 1,
 FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
 FOREIGN KEY (Cod_Marca) REFERENCES MarciAuto(Cod_Marca) ON DELETE CASCADE,
-CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z]{1,2}[0-9]{2,3}[A-Z]{3}'),
-CONSTRAINT CK_VIN CHECK (VIN LIKE '[A-HJ-NPR-Z0-9]{17}'),
+CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][0-9][A-Z][A-Z][A-Z]'),
+--CONSTRAINT CK_VIN CHECK (VIN LIKE '[A-HJ-NPR-Z0-9]{17}'),
+--CONSTRAINT CK_VIN CHECK (VIN LIKE '[AZ0-9]' AND LEN(VIN) = 17),
 CONSTRAINT CK_TipMotorizare CHECK (TipMotorizare IN ('benzina', 'diesel', 'electric', 'hibrid')),
 CONSTRAINT CK_KWh CHECK (
 (TipMotorizare IN ('benzina', 'diesel') AND KWh IS NULL) OR
@@ -95,7 +96,6 @@ END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tebelului Masini' + ERROR_MESSAGE();
 END CATCH;
-
 
 BEGIN TRY
 CREATE TABLE Programari (
@@ -192,8 +192,9 @@ CREATE PROCEDURE InsertClient2
 @Nume VARCHAR(30),
 @Prenume VARCHAR(30),
 @Email VARCHAR(50) = NULL,
-@NrTel1 VARCHAR(10) = NULL,
-@NrTel2 VARCHAR(10) = NULL,
+--@NrTel1 VARCHAR(10) = NULL,
+--@NrTel2 VARCHAR(10) = NULL,
+@NrTel VARCHAR(MAX) = NULL,
 @Activ BIT = 1
 AS
 BEGIN
@@ -203,35 +204,31 @@ BEGIN
 		VALUES (@Nume, @Prenume, @Email, @Activ);
 		DECLARE @Cod_Client INT;
 		SET @Cod_Client = SCOPE_IDENTITY();
-		IF @NrTel1 IS NOT NULL
-		BEGIN
-			INSERT INTO Telefon (Cod_Client, NrTel)
-			VALUES (@Cod_Client, @NrTel1);
-		END
-		IF @NrTel2 IS NOT NULL
-		BEGIN 
-			INSERT INTO Telefon (Cod_Client, NrTel)
-			VALUES (@Cod_Client, @NrTel2);
-		END
 
-		IF (@Email IS NULL AND @NrTel1 IS NULL AND @NrTel2 IS NULL)
+		--IF @NrTel IS NOT NULL
+		--BEGIN;
+		--	INSERT INTO Telefon (Cod_Client, NrTel)
+		--	VALUES (@Cod_Client, @NrTel);
+		--END
+
+		IF (@Email IS NULL AND @NrTel IS NULL)
 		BEGIN;
 			THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
 		END
-		IF (@Email IS NOT NULL AND @NrTel1 IS NULL OR @NrTel2 IS NULL)
+		IF @NrTel IS NOT NULL
 		BEGIN;
-			EXEC InsertClient @Nume, @Prenume, @Email, @NrTel1;
-			PRINT 'Email-ok Telefon-null';
-		END
-		IF (@Email IS NULL AND @NrTel1 IS NOT NULL OR @NrTel2 IS NULL)
-		BEGIN;
-			EXEC InsertClient @Nume, @Prenume, @Email, @NrTel1;
-			PRINT 'Email-null Telefon1-ok';
-		END
-		IF (@Email IS NULL AND @NrTel1 IS NULL OR @NrTel2 IS NOT NULL)
-		BEGIN;
-			EXEC InsertClient @Nume, @Prenume, @Email, @NrTel2;
-			PRINT 'Email-null Telefon2-ok';
+			DECLARE @NrTele VARCHAR(10);
+			DECLARE @Pos INT;
+			SET @Pos = CHARINDEX(',', @NrTel);
+
+			WHILE @Pos > 0 
+			BEGIN
+				SET @NrTele = LEFT(@NrTel, @Pos - 1);
+				INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
+				SET @NrTel = RIGHT(@NrTel, LEN(@NrTel) - @Pos);
+				SET @Pos = CHARINDEX(',', @NrTel);
+			END
+			INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, @NrTel);
 		END
 
 		COMMIT TRANSACTION;
@@ -249,55 +246,56 @@ GO
 --EXEC InsertClient @Nume = 'Stan', @Prenume = 'Mihai';
 --SELECT * FROM ClientContactInfo;
 
-DROP TABLE Telefon;
-ALTER TABLE Clienti
-ADD NrTel1 VARCHAR(10), NrTel2 VARCHAR(10);
+--DROP TABLE Telefon;
+--ALTER TABLE Clienti
+--ADD NrTel1 VARCHAR(10), NrTel2 VARCHAR(10);
 
-ALTER TABLE Clienti
-ADD CONSTRAINT CK_Telefon UNIQUE (NrTel1, NrTel2);
+--ALTER TABLE Clienti
+--ADD CONSTRAINT CK_Telefon UNIQUE (NrTel1, NrTel2);
+--GO
+--ALTER TABLE Clienti
+--ADD CONSTRAINT CK_TelefonFormat CHECK (
+--        (NrTel1 IS NULL OR (NrTel1 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
+--        (NrTel2 IS NULL OR (NrTel2 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')));
+
+--GO
+--CREATE OR ALTER PROCEDURE InsertClient2
+--@Nume VARCHAR(30),
+--@Prenume VARCHAR(30),
+--@Email VARCHAR(50) = NULL,
+--@NrTel1 VARCHAR(10) = NULL,
+--@NrTel2 VARCHAR(10) = NULL,
+--@Activ BIT = 1
+--AS
+--BEGIN
+--	SET NOCOUNT ON;
+--	BEGIN TRANSACTION;
+--	BEGIN TRY
+--		IF (@Email IS NULL AND @NrTel1 IS NULL AND @NrTel2 IS NULL)
+--		BEGIN;
+--			THROW 50001, 'Este nevoie de cel putin un email sau un numar de telefon: ', 1;
+--		END
+
+--		INSERT INTO Clienti (Nume, Prenume, Email, NrTel1, NrTel2, Activ)
+--		VALUES (@Nume, @Prenume, @Email, @NrTel1, @NrTel2, @Activ);
+
+--		COMMIT TRANSACTION;
+--	END TRY
+--	BEGIN CATCH
+--		ROLLBACK TRANSACTION;
+--		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
+--	END CATCH;
+--END
+--GO
+
 GO
-ALTER TABLE Clienti
-ADD CONSTRAINT CK_TelefonFormat CHECK (
-        (NrTel1 IS NULL OR (NrTel1 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
-        (NrTel2 IS NULL OR (NrTel2 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')));
-
-GO
-CREATE OR ALTER PROCEDURE InsertClient2
-@Nume VARCHAR(30),
-@Prenume VARCHAR(30),
-@Email VARCHAR(50) = NULL,
-@NrTel1 VARCHAR(10) = NULL,
-@NrTel2 VARCHAR(10) = NULL,
-@Activ BIT = 1
-AS
-BEGIN
-	SET NOCOUNT ON;
-	BEGIN TRANSACTION;
-	BEGIN TRY
-		IF (@Email IS NULL AND @NrTel1 IS NULL AND @NrTel2 IS NULL)
-		BEGIN;
-			THROW 50001, 'Este nevoie de cel putin un email sau un numar de telefon: ', 1;
-		END
-
-		INSERT INTO Clienti (Nume, Prenume, Email, NrTel1, NrTel2, Activ)
-		VALUES (@Nume, @Prenume, @Email, @NrTel1, @NrTel2, @Activ);
-
-		COMMIT TRANSACTION;
-	END TRY
-	BEGIN CATCH
-		ROLLBACK TRANSACTION;
-		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
-	END CATCH;
-END
-GO
-
-GO
-CREATE VIEW ClientContactInfo AS SELECT c.Nume, c.Prenume, c.Email, c.NrTel1, c.NrTel2, c.Activ FROM Clienti c;
---LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client;
+CREATE VIEW ClientContactInfo AS SELECT c.Nume, c.Prenume, c.Email, STRING_AGG(t.NrTel, ', ') AS NrTelefon, c.Activ FROM Clienti c
+LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client
+GROUP BY Nume, Prenume, Email, Activ;
 GO
 
 
-EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 'stan.mihai@gmail.com', @NrTel1 = '0712345688', @NrTel2 = '0712347678';
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 'stan.mihai@gmail.com', @NrTel = '0712345688,0711147678';
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel2 = '0712345578';
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com';
 EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel2 = '0712345678';
@@ -305,3 +303,18 @@ EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn';
 EXEC InsertClient2 @Nume = 'Popesco', @Prenume = 'Cristi', @NrTel1 = '0712345678', @NrTel2 = '0712345678';
 SELECT * FROM Clienti;
 SELECT * FROM ClientContactInfo;
+SELECT * FROM Telefon;
+
+SELECT c.Cod_Client,c.Nume, c.Prenume, c.Email, STRING_AGG(t.NrTel, ', ') AS NrTelefon
+FROM Clienti c
+JOIN Telefon t ON c.Cod_Client = t.Cod_Client
+GROUP BY c.Cod_Client, Nume, Prenume, Email;
+
+
+INSERT INTO Masini (Cod_Client, Cod_Marca, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh)
+VALUES
+  (1, 1, 'BU123ABC', '1HD1FAL11NY500561', 'Dacia Logan', 2020, 'benzina', 1.6, 100, NULL),
+  (2, 3, 'AB123ECD', '1YVHP84DX55N13025', 'BMW X5', 2022, 'diesel', 3.0, 300, NULL),
+  (3, 2, 'TM345JEF', '3D73Y3CL6BG585460', 'Tesla Model 3', 2023, 'electric', NULL, 350, 100.00);
+
+SELECT * FROM Masini;
