@@ -10,6 +10,8 @@ BEGIN TRY
 	DROP VIEW IF EXISTS ClientContactInfo;
 	DROP PROCEDURE IF EXISTS InsertClient;
 	DROP PROCEDURE IF EXISTS InsertClient2;
+	DROP PROCEDURE IF EXISTS UpdateClient;
+	DROP PROCEDURE IF EXISTS getClienti;
 END TRY
 BEGIN CATCH
 	PRINT 'Eroare la stergerea tabelelor: ' + ERROR_MESSAGE();
@@ -223,12 +225,12 @@ BEGIN
 
 			WHILE @Pos > 0 
 			BEGIN
-				SET @NrTele = LEFT(@NrTel, @Pos - 1);
+				SET @NrTele = LTRIM(RTRIM(LEFT(@NrTel, @Pos - 1)));
 				INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
-				SET @NrTel = RIGHT(@NrTel, LEN(@NrTel) - @Pos);
+				SET @NrTel = LTRIM(RTRIM(RIGHT(@NrTel, LEN(@NrTel) - @Pos)));
 				SET @Pos = CHARINDEX(',', @NrTel);
 			END
-			INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, @NrTel);
+			INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, LTRIM(RTRIM(@NrTel)));
 		END
 
 		COMMIT TRANSACTION;
@@ -296,11 +298,11 @@ GO
 
 
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 'stan.mihai@gmail.com', @NrTel = '0712345688,0711147678';
-EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel2 = '0712345578';
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel = '0712345578';
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com';
-EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel2 = '0712345678';
+EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel = '0712345678';
 EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn';
-EXEC InsertClient2 @Nume = 'Popesco', @Prenume = 'Cristi', @NrTel1 = '0712345678', @NrTel2 = '0712345678';
+EXEC InsertClient2 @Nume = 'Popescghfgfho', @Prenume = 'Cristi', @NrTel = '0712345678,       0712345678';
 SELECT * FROM Clienti;
 SELECT * FROM ClientContactInfo;
 SELECT * FROM Telefon;
@@ -310,6 +312,21 @@ FROM Clienti c
 JOIN Telefon t ON c.Cod_Client = t.Cod_Client
 GROUP BY c.Cod_Client, Nume, Prenume, Email;
 
+GO
+CREATE PROCEDURE getClienti
+AS
+BEGIN
+    SELECT c.Cod_Client,
+           c.Nume,
+           c.Prenume,
+           c.Email,
+           STRING_AGG(t.NrTel, ', ') AS NrTelefon
+    FROM Clienti c
+    JOIN Telefon t ON c.Cod_Client = t.Cod_Client
+    WHERE c.Activ = 1
+    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
+END
+GO
 
 INSERT INTO Masini (Cod_Client, Cod_Marca, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh)
 VALUES
@@ -318,3 +335,75 @@ VALUES
   (3, 2, 'TM345JEF', '3D73Y3CL6BG585460', 'Tesla Model 3', 2023, 'electric', NULL, 350, 100.00);
 
 SELECT * FROM Masini;
+
+GO
+CREATE PROCEDURE UpdateClient
+@Cod_Client INT,
+@Nume VARCHAR(30),
+@Prenume VARCHAR(30),
+@Email VARCHAR(50) = NULL,
+@NrTel VARCHAR(MAX) = NULL,
+@Activ BIT = 1
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        IF (@Email IS NULL AND @NrTel IS NULL)
+        BEGIN;
+            THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
+        END
+
+        UPDATE Clienti
+        SET Nume = @Nume,
+            Prenume = @Prenume,
+            Email = @Email,
+            Activ = @Activ
+        WHERE Cod_Client = @Cod_Client;
+
+        DELETE FROM Telefon WHERE Cod_Client = @Cod_Client;
+
+        IF @NrTel IS NOT NULL
+        BEGIN
+            DECLARE @NrTele VARCHAR(10);
+            DECLARE @Pos INT;
+            SET @Pos = CHARINDEX(',', @NrTel);
+
+            WHILE @Pos > 0 
+            BEGIN
+                SET @NrTele = LTRIM(RTRIM(LEFT(@NrTel, @Pos - 1)));
+                INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, @NrTele);
+                SET @NrTel = LTRIM(RTRIM(RIGHT(@NrTel, LEN(@NrTel) - @Pos)));
+                SET @Pos = CHARINDEX(',', @NrTel);
+            END
+            INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, LTRIM(RTRIM(@NrTel)));
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
+
+GO
+CREATE PROCEDURE dezactivareClient
+	@Cod_Client INT
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        UPDATE Clienti
+        SET Activ = 0
+        WHERE Cod_Client = @Cod_Client;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
+SELECT * FROM Clienti;
