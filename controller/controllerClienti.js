@@ -24,17 +24,18 @@ const adaugareClient = async (req, res) => {
 const actualizareClient = async (req, res) => {
     const {id} = req.params;
     const {Nume, Prenume, Email, NrTel, Activ} = req.body;
+    const telefoane = NrTel ? NrTel.join(',') : null;
 
     try {
         const pool = await poolPromise;
         const request = pool.request();
 
         request.input('Cod_Client', sql.Int, id);
-        request.input('Nume', sql.VarChar(30), Nume);
-        request.input('Prenume', sql.VarChar(30), Prenume);
-        request.input('Email', sql.VarChar(50), Email);
-        request.input('NrTel', sql.VarChar(sql.MAX), NrTel);
-        request.input('Activ', sql.Bit, Activ);
+        request.input('Nume', sql.VarChar(30), Nume || null);
+        request.input('Prenume', sql.VarChar(30), Prenume || null);
+        request.input('Email', sql.VarChar(50), Email || null);
+        request.input('NrTel', sql.VarChar(sql.MAX), telefoane);
+        request.input('Activ', sql.Bit, Activ || null);
         await request.execute('UpdateClient');
         res.status(200).json({ message: 'Clientul a fost actualizat cu succes' });
     } catch (err) {

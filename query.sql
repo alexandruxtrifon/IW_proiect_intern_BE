@@ -12,6 +12,7 @@ BEGIN TRY
 	DROP PROCEDURE IF EXISTS InsertClient2;
 	DROP PROCEDURE IF EXISTS UpdateClient;
 	DROP PROCEDURE IF EXISTS getClienti;
+	DROP PROCEDURE IF EXISTS dezactivareClient;
 END TRY
 BEGIN CATCH
 	PRINT 'Eroare la stergerea tabelelor: ' + ERROR_MESSAGE();
@@ -36,8 +37,8 @@ CREATE TABLE Telefon(
 Cod_Telefon INT PRIMARY KEY IDENTITY(1,1),
 Cod_Client INT,
 NrTel VARCHAR(10),
-FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
---CONSTRAINT CK_Telefon CHECK (NrTel LIKE '07[0-9]{8}' AND LEN(NrTel) = 10));
+FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
+CONSTRAINT CK_Telefon CHECK (NrTel LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND LEN(NrTel) = 10));
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
@@ -336,11 +337,13 @@ VALUES
 
 SELECT * FROM Masini;
 
+
+DROP PROCEDURE IF EXISTS UpdateClient;
 GO
 CREATE PROCEDURE UpdateClient
 @Cod_Client INT,
-@Nume VARCHAR(30),
-@Prenume VARCHAR(30),
+@Nume VARCHAR(30) = NULL,
+@Prenume VARCHAR(30) = NULL,
 @Email VARCHAR(50) = NULL,
 @NrTel VARCHAR(MAX) = NULL,
 @Activ BIT = 1
@@ -350,20 +353,28 @@ BEGIN
     BEGIN TRY
         IF (@Email IS NULL AND @NrTel IS NULL)
         BEGIN;
+			DECLARE @CurrentEmail VARCHAR(50);
+			DECLARE @CurrentNrTel VARCHAR(10);
+			SELECT @CurrentEmail = Email FROM Clienti WHERE Cod_Client = @Cod_Client;
+			SELECT TOP 1 @CurrentNrTel = NrTel FROM Telefon WHERE Cod_Client = @Cod_Client;
+			IF(@CurrentEmail IS NULL AND @CurrentNrTel IS NULL)
+			BEGIN;
             THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
+			END
         END
 
         UPDATE Clienti
-        SET Nume = @Nume,
-            Prenume = @Prenume,
-            Email = @Email,
-            Activ = @Activ
+        SET Nume = COALESCE(@Nume, Nume),
+            Prenume = COALESCE(@Prenume, Prenume),
+            Email = COALESCE(@Email, Email),
+            Activ = COALESCE(@Activ, Activ)
         WHERE Cod_Client = @Cod_Client;
 
-        DELETE FROM Telefon WHERE Cod_Client = @Cod_Client;
 
         IF @NrTel IS NOT NULL
         BEGIN
+			DELETE FROM Telefon WHERE Cod_Client = @Cod_Client;
+
             DECLARE @NrTele VARCHAR(10);
             DECLARE @Pos INT;
             SET @Pos = CHARINDEX(',', @NrTel);
@@ -406,4 +417,48 @@ BEGIN
     END CATCH;
 END
 GO
-SELECT * FROM Clienti;
+SELECT Cod_Client, Nume, Prenume FROM Clienti;
+SELECT * FROM ClientContactInfo;
+
+UPDATE Telefon
+SET NrTel = '0728973720'
+WHERE Cod_Client = 1;
+
+
+
+EXEC UpdateClient @Cod_Client = 1, @NrTel = '0771456266,0712345688,0711147678';
+
+GO
+CREATE PROCEDURE adaugareMasina
+@Cod_Client INT,
+@Cod_Marca VARCHAR(30),
+@NrInmatriculare VARCHAR(10),
+@VIN VARCHAR(17),
+@Model VARCHAR(30),
+@AnFabr INT,
+@TipMotorizare VARCHAR(10),
+@CapacitateMotor DECIMAL(4,1) = NULL,
+@CP INT,
+@KWh DECIMAL(5,2) = NULL,
+@Activ BIT = 1
+AS
+BEGIN;
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        INSERT INTO Masini (
+            Cod_Client, Cod_Marca, NrInmatriculare, VIN, Model, AnFabr, 
+            TipMotorizare, CapacitateMotor, CP, KWh, Activ
+        )
+        VALUES (
+            @Cod_Client, @Cod_Marca, @NrInmatriculare, @VIN, @Model, @AnFabr, 
+            @TipMotorizare, @CapacitateMotor, @CP, @KWh, @Activ
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
