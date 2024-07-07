@@ -8,7 +8,7 @@ const app = express();
 app.use(bodyParser.json());
 
 const routesClienti = require('./routes/clienti');
-const routesMasini = requre('./routes/masini');
+const routesMasini = require('./routes/masini');
 
 app.use('/api/clienti', routesClienti);
 app.use('/api/masini', routesMasini);

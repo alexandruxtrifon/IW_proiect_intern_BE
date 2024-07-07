@@ -13,6 +13,9 @@ BEGIN TRY
 	DROP PROCEDURE IF EXISTS UpdateClient;
 	DROP PROCEDURE IF EXISTS getClienti;
 	DROP PROCEDURE IF EXISTS dezactivareClient;
+	DROP PROCEDURE IF EXISTS adaugareMasina;
+	DROP PROCEDURE IF EXISTS actualizareMasina;
+	DROP PROCEDURE IF EXISTS dezactivareMasina;
 END TRY
 BEGIN CATCH
 	PRINT 'Eroare la stergerea tabelelor: ' + ERROR_MESSAGE();
@@ -84,7 +87,8 @@ KWh DECIMAL(5,2),
 Activ BIT NOT NULL DEFAULT 1,
 FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
 FOREIGN KEY (Cod_Marca) REFERENCES MarciAuto(Cod_Marca) ON DELETE CASCADE,
-CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][0-9][A-Z][A-Z][A-Z]'),
+CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][0-9][A-Z][A-Z][A-Z]'
+OR NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][A-Z][A-Z][A-Z]'),
 --CONSTRAINT CK_VIN CHECK (VIN LIKE '[A-HJ-NPR-Z0-9]{17}'),
 --CONSTRAINT CK_VIN CHECK (VIN LIKE '[AZ0-9]' AND LEN(VIN) = 17),
 CONSTRAINT CK_TipMotorizare CHECK (TipMotorizare IN ('benzina', 'diesel', 'electric', 'hibrid')),
@@ -103,13 +107,13 @@ END CATCH;
 BEGIN TRY
 CREATE TABLE Programari (
 Cod_Programare INT PRIMARY KEY IDENTITY(1,1),
-Cod_Client INT,
-Cod_Masina INT,
-DataProgramare DATETIME,
-ModalitateContact VARCHAR(15),
-Actiune VARCHAR(255),
-IntervalOrar TIME,
-DurataProgramare INT,
+Cod_Client INT NOT NULL,
+Cod_Masina INT NOT NULL,
+DataProgramare DATETIME NOT NULL,
+ModalitateContact VARCHAR(15) NOT NULL,
+Actiune VARCHAR(255) NOT NULL,
+IntervalOrar TIME NOT NULL,
+DurataProgramare INT NOT NULL,
 CONSTRAINT CK_MetodaContact CHECK (ModalitateContact IN ('telefon', 'email', 'fizic')),
 CONSTRAINT CK_IntervalOrar CHECK ( DATEPART(HOUR, IntervalOrar) >= 8 AND DATEPART(HOUR, IntervalOrar) <= 17),
 CONSTRAINT CK_DurataProgramare CHECK (DurataProgramare % 30 = 0 AND DurataProgramare > 0),
@@ -417,6 +421,7 @@ BEGIN
     END CATCH;
 END
 GO
+
 SELECT Cod_Client, Nume, Prenume FROM Clienti;
 SELECT * FROM ClientContactInfo;
 
@@ -462,3 +467,72 @@ BEGIN;
     END CATCH;
 END
 GO
+
+GO
+CREATE PROCEDURE actualizareMasina
+@Cod_Masina INT,
+@Cod_Client INT = NULL,
+@Cod_marca INT = NULL,
+@NrInmatriculare VARCHAR(15) = NULL,
+@VIN VARCHAR(17) = NULL,
+@Model VARCHAR(50) = NULL,
+@AnFabr INT = NULL,
+@TipMotorizare VARCHAR(20) = NULL,
+@CapacitateMotor DECIMAL(4,1) = NULL,
+@CP INT = NULL,
+@KWh DECIMAL(5,2) = NULL,
+@Activ BIT = NULL
+AS
+BEGIN
+	BEGIN TRANSACTION;
+	BEGIN TRY
+	IF NOT EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina)
+	BEGIN;
+		THROW 50001, 'Masina nu exista', 1;
+	END
+	UPDATE Masini
+	SET
+        Cod_Client = COALESCE(@Cod_Client, Cod_Client),
+        Cod_Marca = COALESCE(@Cod_Marca, Cod_Marca),
+        NrInmatriculare = COALESCE(@NrInmatriculare, NrInmatriculare),
+        VIN = COALESCE(@VIN, VIN),
+        Model = COALESCE(@Model, Model),
+        AnFabr = COALESCE(@AnFabr, AnFabr),
+        TipMotorizare = COALESCE(@TipMotorizare, TipMotorizare),
+        CapacitateMotor = COALESCE(@CapacitateMotor, CapacitateMotor),
+        CP = COALESCE(@CP, CP),
+        KWh = COALESCE(@KWh, KWh),
+        Activ = COALESCE(@Activ, Activ)
+    WHERE Cod_Masina = @Cod_Masina;
+
+    COMMIT TRANSACTION;
+	END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
+
+GO
+CREATE PROCEDURE dezactivareMasina
+@Cod_Masina INT
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    BEGIN TRY
+        UPDATE Masini
+        SET Activ = 0
+        WHERE Cod_Masina = @Cod_Masina;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
+
+SELECT c.Nume, c.Prenume, m.* from Clienti c
+JOIN Masini m ON c.Cod_Client = m.Cod_Client;
