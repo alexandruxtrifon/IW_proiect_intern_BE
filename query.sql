@@ -16,6 +16,8 @@ BEGIN TRY
 	DROP PROCEDURE IF EXISTS adaugareMasina;
 	DROP PROCEDURE IF EXISTS actualizareMasina;
 	DROP PROCEDURE IF EXISTS dezactivareMasina;
+	DROP PROCEDURE IF EXISTS adaugaProgramare;
+	DROP PROCEDURE IF EXISTS updateIstoricServiceStatus;
 END TRY
 BEGIN CATCH
 	PRINT 'Eroare la stergerea tabelelor: ' + ERROR_MESSAGE();
@@ -41,7 +43,7 @@ Cod_Telefon INT PRIMARY KEY IDENTITY(1,1),
 Cod_Client INT,
 NrTel VARCHAR(10),
 FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
-CONSTRAINT CK_Telefon CHECK (NrTel LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND LEN(NrTel) = 10));
+CONSTRAINT CK_Telefon CHECK (NrTel LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND LEN(NrTel) = 10));
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
@@ -115,8 +117,9 @@ Actiune VARCHAR(255) NOT NULL,
 IntervalOrar TIME NOT NULL,
 DurataProgramare INT NOT NULL,
 CONSTRAINT CK_MetodaContact CHECK (ModalitateContact IN ('telefon', 'email', 'fizic')),
-CONSTRAINT CK_IntervalOrar CHECK ( DATEPART(HOUR, IntervalOrar) >= 8 AND DATEPART(HOUR, IntervalOrar) <= 17),
+CONSTRAINT CK_IntervalOrar CHECK ( DATEPART(HOUR, IntervalOrar) > 8 AND DATEPART(HOUR, IntervalOrar) < 17),
 CONSTRAINT CK_DurataProgramare CHECK (DurataProgramare % 30 = 0 AND DurataProgramare > 0),
+CONSTRAINT CK_Actiune CHECK (Actiune IN ('revizie', 'reparatie')),
 FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
 END TRY
 BEGIN CATCH
@@ -128,14 +131,21 @@ CREATE TABLE IstoricService(
 Cod_Istoric INT PRIMARY KEY IDENTITY(1,1),
 Cod_Programare INT,
 Cod_Masina INT,
-DataPrimire DATETIME,
-ProblemeDescoperite VARCHAR(499),
+Status TINYINT NOT NULL DEFAULT 0,
+DataPrimire DATE,
+ProblemeMentionate VARCHAR(499),
+ProblemeVizualeConstatate VARCHAR(499),
 OperatiuniEfectuate VARCHAR(499),
 PieseSchimbate VARCHAR(499),
+PieseReparate VARCHAR(499),
 AlteProblemeDescoperite VARCHAR(499),
-ReparatiiEfectuate VARCHAR(499),
+AlteReparatii VARCHAR(499),
 DurataReparatie INT,
 CONSTRAINT CK_DurataReparatie CHECK (DurataReparatie % 10 = 0 AND DurataReparatie > 0),
+CONSTRAINT CK_Status CHECK (Status IN (0, 1, 2, 3)),
+--CONSTRAINT CK_Status2 CHECK ((Status = 1 AND DataPrimire IS NOT NULL) OR Status != 1),
+--CONSTRAINT CK_Status3 CHECK ((Status = 2 AND ProblemeMentionate IS NOT NULL AND ProblemeVizualeConstatate IS NOT NULL) OR Status != 2),
+--CONSTRAINT CK_Status4 CHECK ((Status = 3 AND OperatiuniEfectuate IS NOT NULL AND PieseSchimbate IS NOT NULL AND PieseReparate IS NOT NULL AND AlteProblemeDescoperite IS NOT NULL AND AlteReparatii IS NOT NULL AND DurataReparatie IS NOT NULL) OR Status != 3),
 FOREIGN KEY (Cod_Programare) REFERENCES Programari(Cod_Programare) ON DELETE CASCADE);
 END TRY
 BEGIN CATCH
@@ -536,3 +546,217 @@ GO
 
 SELECT c.Nume, c.Prenume, m.* from Clienti c
 JOIN Masini m ON c.Cod_Client = m.Cod_Client;
+
+
+
+GO
+CREATE PROCEDURE adaugaProgramare
+@Cod_Client INT,
+@Cod_Masina INT,
+@DataProgramare DATETIME,
+@ModalitateContact VARCHAR(15),
+@Actiune VARCHAR(255),
+@IntervalOrar TIME,
+@DurataProgramare INT
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION;
+		IF @ModalitateContact NOT IN ('telefon', 'email', 'fizic')
+		BEGIN;
+		THROW 50001, 'Modalitatea de contact trebuie sa fie telefon, email sau fizic', 1;
+		END
+		IF @Actiune NOT IN ('revizie', 'reparatie')
+		BEGIN;
+		THROW 50002, 'Programarea se face doar pentru revizie sau reparatie', 1;
+		END
+		IF DATEPART(HOUR, @IntervalOrar) < 8 OR DATEPART(HOUR, @IntervalOrar) > 17
+		BEGIN;
+			THROW 50003, 'Intervalul orar trebuie sa fie intre 8 si 17', 1;
+		END
+		IF @DurataProgramare % 30 != 0 OR @DurataProgramare <= 0
+		BEGIN;
+			THROW 50004, 'Programarea trebuie sa dureze minim 30 de minute si sa fie multiplu de 30 de minute', 1;
+		END
+
+		INSERT INTO Programari (Cod_Client, Cod_Masina, DataProgramare, ModalitateContact, Actiune, IntervalOrar, DurataProgramare)
+		VALUES (@Cod_Client, @Cod_Masina, @DataProgramare, @ModalitateContact, @Actiune, @IntervalOrar, @DurataProgramare)
+
+		--adaugat ulterior
+		DECLARE @Cod_Programare INT = SCOPE_IDENTITY();
+		INSERT INTO IstoricService (Cod_Programare, Cod_Masina, Status)
+		VALUES (@Cod_programare, @Cod_Masina, 1)
+
+		COMMIT TRANSACTION;
+		PRINT 'Programarea a fost adaugata si s-a creat inregistrarea in istoric';
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION;
+		DECLARE @ErrorMessage VARCHAR(MAX);
+		SET @ErrorMessage = ERROR_MESSAGE();
+		PRINT 'Eroare la introducerea programarii: ' + @ErrorMessage;
+	END CATCH;
+END
+GO
+
+GO
+CREATE PROCEDURE updateIstoricServiceStatus
+@Cod_Istoric INT,
+@NewStatus TINYINT,
+@DataPrimire DATE = NULL,
+@ProblemeMentionate VARCHAR(499) = NULL,
+@ProblemeVizualeConstatate VARCHAR(499) = NULL,
+@OperatiuniEfectuate VARCHAR(499) = NULL,
+@PieseSchimbate VARCHAR(499) = NULL,
+@PieseReparate VARCHAR(499) = NULL,
+@AlteProblemeDescoperite VARCHAR(499) = NULL,
+@AlteReparatii VARCHAR(499) = NULL,
+@DurataReparatie INT = NULL
+AS
+BEGIN
+	UPDATE IstoricService
+	SET Status = @NewStatus,
+		DataPrimire = CASE WHEN @NewStatus >= 1 THEN COALESCE(@DataPrimire, DataPrimire) ELSE DataPrimire END,
+		ProblemeMentionate = CASE WHEN @NewStatus >= 2 THEN COALESCE(@ProblemeMentionate, ProblemeMentionate) ELSE ProblemeMentionate END,
+        ProblemeVizualeConstatate = CASE WHEN @NewStatus >= 2 THEN COALESCE(@ProblemeVizualeConstatate, ProblemeVizualeConstatate) ELSE ProblemeVizualeConstatate END,
+        OperatiuniEfectuate = CASE WHEN @NewStatus = 3 THEN COALESCE(@OperatiuniEfectuate, OperatiuniEfectuate) ELSE OperatiuniEfectuate END,
+        PieseSchimbate = CASE WHEN @NewStatus = 3 THEN COALESCE(@PieseSchimbate, PieseSchimbate) ELSE PieseSchimbate END,
+        PieseReparate = CASE WHEN @NewStatus = 3 THEN COALESCE(@PieseReparate, PieseReparate) ELSE PieseReparate END,
+        AlteProblemeDescoperite = CASE WHEN @NewStatus = 3 THEN COALESCE(@AlteProblemeDescoperite, AlteProblemeDescoperite) ELSE AlteProblemeDescoperite END,
+        AlteReparatii = CASE WHEN @NewStatus = 3 THEN COALESCE(@AlteReparatii, AlteReparatii) ELSE AlteReparatii END,
+        DurataReparatie = CASE WHEN @NewStatus = 3 THEN COALESCE(@DurataReparatie, DurataReparatie) ELSE DurataReparatie END
+    WHERE Cod_Istoric = @Cod_Istoric;
+END
+GO
+
+GO
+CREATE OR ALTER PROCEDURE updateIstoricServiceStatus0
+	@Cod_Istoric INT
+AS
+BEGIN
+    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) = 0
+    BEGIN
+		UPDATE IstoricService
+			SET Status = 0,
+			DataPrimire = NULL,
+			ProblemeMentionate = NULL,
+			OperatiuniEfectuate = NULL,
+			PieseSchimbate = NULL,
+			PieseReparate = NULL,
+			AlteProblemeDescoperite = NULL,
+			AlteReparatii = NULL,
+			DurataReparatie = NULL
+		WHERE Cod_Istoric = @Cod_Istoric;
+	END
+	ELSE
+	BEGIN;
+	THROW 500001, 'Nu se poate seta status-ul la o valoare mai mica decat cea curenta', 1;
+	END
+END
+GO
+
+GO
+CREATE OR ALTER PROCEDURE updateIstoricServiceStatus1
+	@Cod_Istoric INT,
+	@Cod_Programare INT
+AS
+BEGIN
+    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 1
+	BEGIN
+		UPDATE IstoricService
+		SET Status = 1,
+			Cod_Programare = @Cod_Programare
+		WHERE Cod_Istoric = @Cod_Istoric;
+	END
+	ELSE
+	BEGIN;
+		THROW 500001, 'Nu se poate seta status-ul la o valoare mai mica decat cea curenta', 1;
+	END
+END
+GO
+
+GO
+CREATE OR ALTER PROCEDURE updateIstoricServiceStatus2
+    @Cod_Istoric INT,
+    @DataPrimire DATETIME,
+    @ProblemeMentionate VARCHAR(499),
+    @ProblemeVizualeConstatate VARCHAR(499)
+AS
+BEGIN
+    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 2
+    BEGIN
+        UPDATE IstoricService
+        SET Status = 2,
+            DataPrimire = @DataPrimire,
+            ProblemeMentionate = @ProblemeMentionate,
+            ProblemeVizualeConstatate = @ProblemeVizualeConstatate
+        WHERE Cod_Istoric = @Cod_Istoric;
+    END
+    ELSE
+    BEGIN;
+        THROW 500001, 'Nu se poate seta status-ul la o valoare mai mica decat cea curenta', 1;
+    END
+END
+GO
+
+GO
+CREATE OR ALTER PROCEDURE updateIstoricServiceStatus3
+    @Cod_Istoric INT,
+    @OperatiuniEfectuate VARCHAR(499),
+    @PieseSchimbate VARCHAR(499),
+    @PieseReparate VARCHAR(499),
+    @AlteProblemeDescoperite VARCHAR(499),
+    @AlteReparatii VARCHAR(499),
+    @DurataReparatie INT
+AS
+BEGIN
+    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 3
+    BEGIN
+        UPDATE IstoricService
+        SET Status = 3,
+            OperatiuniEfectuate = @OperatiuniEfectuate,
+            PieseSchimbate = @PieseSchimbate,
+            PieseReparate = @PieseReparate,
+            AlteProblemeDescoperite = @AlteProblemeDescoperite,
+            AlteReparatii = @AlteReparatii,
+            DurataReparatie = @DurataReparatie
+        WHERE Cod_Istoric = @Cod_Istoric;
+    END
+    ELSE
+    BEGIN;
+        THROW 500001, 'Nu se poate seta status-ul la o valoare mai mica decat cea curenta', 1;
+    END
+END
+GO
+
+SELECT * FROM Masini;
+EXEC adaugaProgramare @Cod_Client = 1, @Cod_Masina = 1, @DataProgramare = '10/08/2024 10:10', @ModalitateContact = 'fizic', @Actiune = 'revizie', @IntervalOrar = '10:00', @DurataProgramare = 60;
+SELECT * FROM Programari;
+SELECT * FROM IstoricService;
+EXEC updateIstoricServiceStatus0 @Cod_Istoric = 1;
+
+EXEC updateIstoricServiceStatus1 @Cod_Istoric = 1, @Cod_Programare = 3;
+EXEC updateIstoricServiceStatus2 @Cod_Istoric = 1, @DataPrimire = '10/08/2024', @ProblemeMentionate = 'fara probleme vericule', @ProblemeVizualeConstatate = 'e turbata varule';
+EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = '  ', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
+  @AlteProblemeDescoperite = 'na' , @AlteReparatii = 'na',@DurataReparatie= 30;
+--@Cod_Client INT,
+--@Cod_Masina INT,
+--@DataProgramare DATETIME,
+--@ModalitateContact VARCHAR(15),
+--@Actiune VARCHAR(255),
+--@IntervalOrar TIME,
+--@DurataProgramare INT
+	
+	--uISS2
+    --@DataPrimire DATETIME,
+    --@ProblemeMentionate VARCHAR(499),
+    --@ProblemeVizualeConstatate VARCHAR(499)
+
+	--uISS3
+	--@Cod_Istoric INT,
+ --   @OperatiuniEfectuate VARCHAR(499),
+ --   @PieseSchimbate VARCHAR(499),
+ --   @PieseReparate VARCHAR(499),
+ --   @AlteProblemeDescoperite VARCHAR(499),
+ --   @AlteReparatii VARCHAR(499),
+ --   @DurataReparatie INT

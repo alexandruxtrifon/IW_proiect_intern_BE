@@ -9,6 +9,7 @@ app.use(bodyParser.json());
 
 const routesClienti = require('./routes/clienti');
 const routesMasini = require('./routes/masini');
+const routesProgramari = require('./routes/programari');
 
 app.use('/api/clienti', routesClienti);
 app.use('/api/masini', routesMasini);
