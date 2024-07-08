@@ -106,25 +106,29 @@ BEGIN CATCH
 PRINT 'Eroare la crearea tebelului Masini' + ERROR_MESSAGE();
 END CATCH;
 
+
 BEGIN TRY
 CREATE TABLE Programari (
 Cod_Programare INT PRIMARY KEY IDENTITY(1,1),
-Cod_Client INT NOT NULL,
+--Cod_Client INT NOT NULL,
 Cod_Masina INT NOT NULL,
-DataProgramare DATETIME NOT NULL,
+DataProgramare DATE NOT NULL,
 ModalitateContact VARCHAR(15) NOT NULL,
 Actiune VARCHAR(255) NOT NULL,
 IntervalOrar TIME NOT NULL,
 DurataProgramare INT NOT NULL,
 CONSTRAINT CK_MetodaContact CHECK (ModalitateContact IN ('telefon', 'email', 'fizic')),
-CONSTRAINT CK_IntervalOrar CHECK ( DATEPART(HOUR, IntervalOrar) > 8 AND DATEPART(HOUR, IntervalOrar) < 17),
-CONSTRAINT CK_DurataProgramare CHECK (DurataProgramare % 30 = 0 AND DurataProgramare > 0),
+CONSTRAINT CK_IntervalOrar CHECK (DATEPART(HOUR, IntervalOrar) >= 8 AND DATEPART(HOUR, IntervalOrar) <= 17),
+CONSTRAINT CK_IntervalOrar2 CHECK (DATEPART(MINUTE, IntervalOrar) = 30 OR DATEPART(MINUTE, IntervalOrar) = 00),
+CONSTRAINT CK_DurataProgramare CHECK (DurataProgramare % 30 = 0 AND DurataProgramare >= 30),
 CONSTRAINT CK_Actiune CHECK (Actiune IN ('revizie', 'reparatie')),
-FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
+--FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
+FOREIGN KEY (Cod_Masina) REFERENCES Masini(Cod_masina) ON DELETE CASCADE);
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Programari' + ERROR_MESSAGE();
 END CATCH;
+
 
 BEGIN TRY
 CREATE TABLE IstoricService(
@@ -150,6 +154,21 @@ FOREIGN KEY (Cod_Programare) REFERENCES Programari(Cod_Programare) ON DELETE CAS
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului IstoricService' + ERROR_MESSAGE();
+END CATCH;
+
+BEGIN TRY
+    ALTER TABLE IstoricService
+    ADD StatusText AS (
+        CASE 
+            WHEN Status = 1 THEN 'Programat'
+            WHEN Status = 2 THEN 'Masina Preluata'
+            WHEN Status = 3 THEN 'Masina externata'
+            ELSE 'Necunoscut'
+        END
+    );
+END TRY
+BEGIN CATCH
+    PRINT 'Eroare la modificarea tabelului IstoricService' + ERROR_MESSAGE();
 END CATCH;
 
 /*INSERT INTO Clienti (Nume, Prenume, Email, Activ)
@@ -548,10 +567,11 @@ SELECT c.Nume, c.Prenume, m.* from Clienti c
 JOIN Masini m ON c.Cod_Client = m.Cod_Client;
 
 
+CREATE UNIQUE INDEX idx_programare_unica
+ON Programari (Cod_Masina, DataProgramare, IntervalOrar);
 
 GO
 CREATE PROCEDURE adaugaProgramare
-@Cod_Client INT,
 @Cod_Masina INT,
 @DataProgramare DATETIME,
 @ModalitateContact VARCHAR(15),
@@ -560,8 +580,33 @@ CREATE PROCEDURE adaugaProgramare
 @DurataProgramare INT
 AS
 BEGIN
+	BEGIN TRANSACTION;
 	BEGIN TRY
-		BEGIN TRANSACTION;
+		--check daca exista masina
+		IF NOT EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina)
+		BEGIN;
+			THROW 50001, 'Masina nu exista', 1;
+		END
+
+		DECLARE @IntervalInchis TIME(0) = DATEADD(MINUTE, @DurataProgramare, @IntervalOrar);
+		IF (DATEPART(HOUR, @IntervalInchis) > 17 OR (DATEPART(HOUR, @IntervalInchis) = 17 AND DATEPART(MINUTE, @IntervalInchis) > 0))
+		BEGIN;
+			THROW 50001, 'Durata programarii depaseste ora inchiderii 17:00', 1;
+		END
+
+		-- ADAUGAT ULTERIOR - prevenire suprapunere la programari
+		IF EXISTS (SELECT 1 FROM Programari WHERE DataProgramare = @DataProgramare AND @IntervalOrar < DATEADD(MINUTE, DurataProgramare, IntervalOrar)
+		AND DATEADD(MINUTE, @DurataProgramare, @IntervalOrar) > IntervalOrar)
+		BEGIN;
+			THROW 50001, 'Exista deja o programare in acest interval orar', 1;
+		END
+
+		IF (DATEPART(MINUTE, @IntervalOrar) % 30 <> 0)
+        BEGIN;
+            THROW 50003, 'Intervalul orar trebuie sa inceapa la o ora care este un multiplu de 30 de minute', 1;
+        END
+
+		--BEGIN TRANSACTION;
 		IF @ModalitateContact NOT IN ('telefon', 'email', 'fizic')
 		BEGIN;
 		THROW 50001, 'Modalitatea de contact trebuie sa fie telefon, email sau fizic', 1;
@@ -579,8 +624,8 @@ BEGIN
 			THROW 50004, 'Programarea trebuie sa dureze minim 30 de minute si sa fie multiplu de 30 de minute', 1;
 		END
 
-		INSERT INTO Programari (Cod_Client, Cod_Masina, DataProgramare, ModalitateContact, Actiune, IntervalOrar, DurataProgramare)
-		VALUES (@Cod_Client, @Cod_Masina, @DataProgramare, @ModalitateContact, @Actiune, @IntervalOrar, @DurataProgramare)
+		INSERT INTO Programari (Cod_Masina, DataProgramare, ModalitateContact, Actiune, IntervalOrar, DurataProgramare)
+		VALUES (@Cod_Masina, @DataProgramare, @ModalitateContact, @Actiune, @IntervalOrar, @DurataProgramare)
 
 		--adaugat ulterior
 		DECLARE @Cod_Programare INT = SCOPE_IDENTITY();
@@ -655,17 +700,18 @@ BEGIN
 END
 GO
 
+-- uISS1 nu mai este actual
 GO
 CREATE OR ALTER PROCEDURE updateIstoricServiceStatus1
-	@Cod_Istoric INT,
-	@Cod_Programare INT
+	@Cod_Istoric INT
+--	@Cod_Programare INT
 AS
 BEGIN
     IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 1
 	BEGIN
 		UPDATE IstoricService
-		SET Status = 1,
-			Cod_Programare = @Cod_Programare
+		SET Status = 1
+--			Cod_Programare = @Cod_Programare
 		WHERE Cod_Istoric = @Cod_Istoric;
 	END
 	ELSE
@@ -730,15 +776,25 @@ END
 GO
 
 SELECT * FROM Masini;
-EXEC adaugaProgramare @Cod_Client = 1, @Cod_Masina = 1, @DataProgramare = '10/08/2024 10:10', @ModalitateContact = 'fizic', @Actiune = 'revizie', @IntervalOrar = '10:00', @DurataProgramare = 60;
+EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '10/08/2024', @ModalitateContact = 'fizic', @Actiune = 'revizie', @IntervalOrar = '10:00', @DurataProgramare = 60;
+EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '10:00', @DurataProgramare = 90;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '07:30', @DurataProgramare = 30;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '12/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '16:01', @DurataProgramare = 30;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '16:30', @DurataProgramare = 60;
+
 SELECT * FROM Programari;
 SELECT * FROM IstoricService;
-EXEC updateIstoricServiceStatus0 @Cod_Istoric = 1;
 
-EXEC updateIstoricServiceStatus1 @Cod_Istoric = 1, @Cod_Programare = 3;
+-- NU SE MAI FOLOSESTE uISS0
+--EXEC updateIstoricServiceStatus0 @Cod_Istoric = 1;
+
+EXEC updateIstoricServiceStatus1 @Cod_Istoric = 1;
 EXEC updateIstoricServiceStatus2 @Cod_Istoric = 1, @DataPrimire = '10/08/2024', @ProblemeMentionate = 'fara probleme vericule', @ProblemeVizualeConstatate = 'e turbata varule';
-EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = '  ', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
+EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = 'i-am facut testul cu moneda', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
   @AlteProblemeDescoperite = 'na' , @AlteReparatii = 'na',@DurataReparatie= 30;
+
+
+
 --@Cod_Client INT,
 --@Cod_Masina INT,
 --@DataProgramare DATETIME,
