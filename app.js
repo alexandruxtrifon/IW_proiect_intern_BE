@@ -10,9 +10,23 @@ app.use(bodyParser.json());
 const routesClienti = require('./routes/clienti');
 const routesMasini = require('./routes/masini');
 const routesProgramari = require('./routes/programari');
+const routesIstoric = require('./routes/istoric');
 
 app.use('/api/clienti', routesClienti);
 app.use('/api/masini', routesMasini);
+app.use('/api/programari', routesProgramari);
+app.use('/api/istoric', routesIstoric);
+
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT,console.log(
+    `Server started on port ${PORT}`));
+
+
+
+
+
+
 
 app.get('/api/contact', async (req, res) => { 
     try{
@@ -77,7 +91,3 @@ app.get('/api/test', async (req, res) => {
       });
     }
   });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT,console.log(
-    `Server started on port ${PORT}`));
