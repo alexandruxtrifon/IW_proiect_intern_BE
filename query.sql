@@ -1,4 +1,6 @@
 ALTER USER user_internship2024 WITH DEFAULT_SCHEMA = intern;
+--DBCC USEROPTIONS;
+SET dateformat dmy;
 
 BEGIN TRY
 	DROP TABLE IF EXISTS Telefon;
@@ -136,6 +138,13 @@ Cod_Istoric INT PRIMARY KEY IDENTITY(1,1),
 Cod_Programare INT,
 Cod_Masina INT,
 Status TINYINT NOT NULL DEFAULT 0,
+StatusText AS (
+CASE 
+    WHEN Status = 1 THEN 'Programat'
+    WHEN Status = 2 THEN 'Masina Preluata'
+    WHEN Status = 3 THEN 'Masina externata'
+    ELSE 'Necunoscut'
+END),
 DataPrimire DATE,
 ProblemeMentionate VARCHAR(499),
 ProblemeVizualeConstatate VARCHAR(499),
@@ -156,20 +165,20 @@ BEGIN CATCH
 PRINT 'Eroare la crearea tabelului IstoricService' + ERROR_MESSAGE();
 END CATCH;
 
-BEGIN TRY
-    ALTER TABLE IstoricService
-    ADD StatusText AS (
-        CASE 
-            WHEN Status = 1 THEN 'Programat'
-            WHEN Status = 2 THEN 'Masina Preluata'
-            WHEN Status = 3 THEN 'Masina externata'
-            ELSE 'Necunoscut'
-        END
-    );
-END TRY
-BEGIN CATCH
-    PRINT 'Eroare la modificarea tabelului IstoricService' + ERROR_MESSAGE();
-END CATCH;
+--BEGIN TRY
+--    ALTER TABLE IstoricService
+--    ADD StatusText AS (
+--        CASE 
+--            WHEN Status = 1 THEN 'Programat'
+--            WHEN Status = 2 THEN 'Masina Preluata'
+--            WHEN Status = 3 THEN 'Masina externata'
+--            ELSE 'Necunoscut'
+--        END
+--    );
+--END TRY
+--BEGIN CATCH
+--    PRINT 'Eroare la modificarea tabelului IstoricService' + ERROR_MESSAGE();
+--END CATCH;
 
 /*INSERT INTO Clienti (Nume, Prenume, Email, Activ)
 VALUES 
@@ -644,6 +653,7 @@ BEGIN
 END
 GO
 
+--nu mai este actuala
 GO
 CREATE PROCEDURE updateIstoricServiceStatus
 @Cod_Istoric INT,
@@ -788,7 +798,7 @@ SELECT * FROM IstoricService;
 -- NU SE MAI FOLOSESTE uISS0
 --EXEC updateIstoricServiceStatus0 @Cod_Istoric = 1;
 
-EXEC updateIstoricServiceStatus1 @Cod_Istoric = 1;
+--EXEC updateIstoricServiceStatus1 @Cod_Istoric = 1;
 EXEC updateIstoricServiceStatus2 @Cod_Istoric = 1, @DataPrimire = '10/08/2024', @ProblemeMentionate = 'fara probleme vericule', @ProblemeVizualeConstatate = 'e turbata varule';
 EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = 'i-am facut testul cu moneda', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
   @AlteProblemeDescoperite = 'na' , @AlteReparatii = 'na',@DurataReparatie= 30;
