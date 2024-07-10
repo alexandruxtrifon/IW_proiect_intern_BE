@@ -1,7 +1,7 @@
-ALTER USER user_internship2024 WITH DEFAULT_SCHEMA = intern;
+﻿ALTER USER user_internship2024 WITH DEFAULT_SCHEMA = intern;
 --DBCC USEROPTIONS;
 SET dateformat dmy;
-
+--SET IMPLICIT_TRANSACTIONS OFF;
 BEGIN TRY
 	DROP TABLE IF EXISTS Telefon;
 	DROP TABLE IF EXISTS IstoricService;
@@ -32,12 +32,74 @@ Cod_Client INT PRIMARY KEY IDENTITY(1,1),
 Nume VARCHAR(30) NOT NULL,
 Prenume VARCHAR(30) NOT NULL,
 Email VARCHAR(50),
-Activ BIT NOT NULL DEFAULT 1,
-CONSTRAINT CK_Email CHECK (Email LIKE '%_@__%.__%'));
+Activ BIT NOT NULL DEFAULT 1);
+--CONSTRAINT CK_Email CHECK (Email LIKE '%_@__%.__%'));
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Clienti: ' + ERROR_MESSAGE();
 END CATCH;
+
+DROP FUNCTION IF EXISTS validareEmail;
+GO
+CREATE FUNCTION validareEmail(@Email VARCHAR(50))
+RETURNS VARCHAR(MAX)
+AS
+BEGIN
+	--DECLARE @EvalEmail AS BIT = 1
+	DECLARE @User VARCHAR(50)
+	DECLARE @MailServer VARCHAR(50)
+	DECLARE @Domeniu VARCHAR(50)
+	DECLARE @Error VARCHAR(MAX) = 'Email Valid'
+	
+    IF CHARINDEX('@', @Email) > 0 AND CHARINDEX('.', @Email, CHARINDEX('@', @Email)) > CHARINDEX('@', @Email)
+    BEGIN
+        SET @User = LEFT(@Email, CHARINDEX('@', @Email) - 1)
+        SET @MailServer = SUBSTRING(@Email, CHARINDEX('@', @Email) + 1, CHARINDEX('.', @Email, CHARINDEX('@', @Email)) - CHARINDEX('@', @Email) - 1)
+        SET @Domeniu = RIGHT(@Email, LEN(@Email) - CHARINDEX('.', @Email, CHARINDEX('@', @Email)))
+       
+        IF LEN(@User) < 3 
+        BEGIN
+            SET @Error = 'Numele de utilizator al emailului trebuie sa aiba cel putin 3 caractere.'
+        END
+		ELSE IF @User LIKE '%[^a-zA-Z0-9!#$%&''*+/=?^_`{|}~-]%' OR LEFT(@User, 1) = '.' OR RIGHT(@User, 1) = '.'
+        BEGIN
+            SET @Error = 'Numele de utilizator contine caractere invalide sau punct la inceput/sfarsit.'
+        END
+        --ELSE IF @User LIKE '%[^a-zA-Z0-9!#$%&''*+/=?^_`{|}~-]%'
+        --BEGIN
+        --    SET @Error = 'Numele de utilizator contine caractere invalide {a-zA-Z0-9!#$%&''*+/=?^_`{|}~-}'
+        --END
+
+		--ELSE IF LEFT(@User, 1) = '.'
+		--BEGIN
+		--	SET @Error = 'Numele de utilizator din email nu poate incepe cu ''.'''
+		--END
+		--ELSE IF RIGHT(@User,1) = '.'
+		--BEGIN
+		--	SET @Error = 'Numele de utilizaor din email nu se poate incheia cu ''.'''
+		--END
+        
+        ELSE IF LEN(@MailServer) < 3 OR @MailServer LIKE '%[^a-zA-Z]%'
+        BEGIN
+            SET @Error = 'Serverul emailului trebuie sa aiba cel putin 3 caractere si sa contina doar litere.'
+        END
+
+        ELSE IF LEN(@Domeniu) < 2 OR @Domeniu LIKE '%[^a-zA-Z]%'
+        BEGIN
+            SET @Error = 'Domeniul emailului trebuie sa contina cel putin 2 caractere si sa contina doar litere.'
+        END
+    END
+    ELSE
+    BEGIN
+        SET @Error = 'Formatul emailului este incorect.'
+    END
+
+    RETURN @Error
+END
+GO
+
+--ALTER TABLE Clienti
+--ADD CONSTRAINT CK_Email CHECK (intern.validareEmail(Email) = 1);
 
 BEGIN TRY
 CREATE TABLE Telefon(
@@ -93,8 +155,8 @@ FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
 FOREIGN KEY (Cod_Marca) REFERENCES MarciAuto(Cod_Marca) ON DELETE CASCADE,
 CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][0-9][A-Z][A-Z][A-Z]'
 OR NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][A-Z][A-Z][A-Z]'),
---CONSTRAINT CK_VIN CHECK (VIN LIKE '[A-HJ-NPR-Z0-9]{17}'),
---CONSTRAINT CK_VIN CHECK (VIN LIKE '[AZ0-9]' AND LEN(VIN) = 17),
+--CONSTRAINT CK_VIN CHECK (VIN NOT LIKE '%[^a-zA-Z0-9%]' AND LEN(VIN) = 17),
+--CONSTRAINT CK_VIN CHECK (intern.validareVIN(VIN) = 1),
 CONSTRAINT CK_TipMotorizare CHECK (TipMotorizare IN ('benzina', 'diesel', 'electric', 'hibrid')),
 CONSTRAINT CK_KWh CHECK (
 (TipMotorizare IN ('benzina', 'diesel') AND KWh IS NULL) OR
@@ -108,11 +170,26 @@ BEGIN CATCH
 PRINT 'Eroare la crearea tebelului Masini' + ERROR_MESSAGE();
 END CATCH;
 
+GO
+CREATE OR ALTER FUNCTION validareVIN(@VIN VARCHAR(17))
+RETURNS BIT
+AS
+BEGIN
+	DECLARE @valid BIT = 0;
+	IF LEN(@VIN) = 17 AND @VIN NOT LIKE '%[^a-zA-Z0-9]%'
+	BEGIN
+		SET @valid = 1;
+	END
+	RETURN @valid;
+END
+GO
+
+ALTER TABLE Masini
+ADD CONSTRAINT CK_VIN CHECK (intern.validareVIN(VIN) = 1);
 
 BEGIN TRY
 CREATE TABLE Programari (
 Cod_Programare INT PRIMARY KEY IDENTITY(1,1),
---Cod_Client INT NOT NULL,
 Cod_Masina INT NOT NULL,
 DataProgramare DATE NOT NULL,
 ModalitateContact VARCHAR(15) NOT NULL,
@@ -124,7 +201,6 @@ CONSTRAINT CK_IntervalOrar CHECK (DATEPART(HOUR, IntervalOrar) >= 8 AND DATEPART
 CONSTRAINT CK_IntervalOrar2 CHECK (DATEPART(MINUTE, IntervalOrar) = 30 OR DATEPART(MINUTE, IntervalOrar) = 00),
 CONSTRAINT CK_DurataProgramare CHECK (DurataProgramare % 30 = 0 AND DurataProgramare >= 30),
 CONSTRAINT CK_Actiune CHECK (Actiune IN ('revizie', 'reparatie')),
---FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
 FOREIGN KEY (Cod_Masina) REFERENCES Masini(Cod_masina) ON DELETE CASCADE);
 END TRY
 BEGIN CATCH
@@ -156,110 +232,45 @@ AlteReparatii VARCHAR(499),
 DurataReparatie INT,
 CONSTRAINT CK_DurataReparatie CHECK (DurataReparatie % 10 = 0 AND DurataReparatie > 0),
 CONSTRAINT CK_Status CHECK (Status IN (0, 1, 2, 3)),
---CONSTRAINT CK_Status2 CHECK ((Status = 1 AND DataPrimire IS NOT NULL) OR Status != 1),
---CONSTRAINT CK_Status3 CHECK ((Status = 2 AND ProblemeMentionate IS NOT NULL AND ProblemeVizualeConstatate IS NOT NULL) OR Status != 2),
---CONSTRAINT CK_Status4 CHECK ((Status = 3 AND OperatiuniEfectuate IS NOT NULL AND PieseSchimbate IS NOT NULL AND PieseReparate IS NOT NULL AND AlteProblemeDescoperite IS NOT NULL AND AlteReparatii IS NOT NULL AND DurataReparatie IS NOT NULL) OR Status != 3),
 FOREIGN KEY (Cod_Programare) REFERENCES Programari(Cod_Programare) ON DELETE CASCADE);
 END TRY
 BEGIN CATCH
-PRINT 'Eroare la crearea tabelului IstoricService' + ERROR_MESSAGE();
+PRINT 'Eroare la crearea tabelului ''IstoricService''' + ERROR_MESSAGE();
 END CATCH;
 
---BEGIN TRY
---    ALTER TABLE IstoricService
---    ADD StatusText AS (
---        CASE 
---            WHEN Status = 1 THEN 'Programat'
---            WHEN Status = 2 THEN 'Masina Preluata'
---            WHEN Status = 3 THEN 'Masina externata'
---            ELSE 'Necunoscut'
---        END
---    );
---END TRY
---BEGIN CATCH
---    PRINT 'Eroare la modificarea tabelului IstoricService' + ERROR_MESSAGE();
---END CATCH;
-
-/*INSERT INTO Clienti (Nume, Prenume, Email, Activ)
-VALUES 
-('Popescu', 'Ion', 'ion.popescu@example.com', 1),
-('Ionescu', 'Maria', 'maria.ionescu@example.com', 1),
-('Georgescu', 'Vasile', 'vasile.georgescu@example.com', 1),
-('Dumitrescu', 'Elena', NULL, 1),
-('Stan', 'Mihai', NULL, 1);
 GO
-
-
-INSERT INTO Telefon (Cod_Client, NrTel)
-VALUES 
-(1, '0712345678'), 
-(1, '0723456789'), 
-(3, '0734567890'), 
-(4, '0745678901'), 
-(5, '0756789012')  
-GO
-*/
-
-
-GO
-CREATE PROCEDURE InsertClient
-@Nume VARCHAR(30),
-@Prenume VARCHAR(30),
-@Email VARCHAR(50) = NULL,
-@NrTel VARCHAR(50) = NULL,
-@Activ BIT = 1
-AS
-BEGIN
-	BEGIN TRANSACTION;
-	BEGIN TRY
-		INSERT INTO Clienti (Nume, Prenume, Email, Activ) VALUES (@Nume, @Prenume, @Email, @Activ);
-		DECLARE @Cod_Client INT;
-		SET @Cod_Client = SCOPE_IDENTITY();
-
-		IF @NrTel IS NOT NULL
-		BEGIN
-			INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, @NrTel);
-		END
-		IF (@Email IS NULL AND @NrTel IS NULL)
-		BEGIN;
-			THROW 50001, 'Trebuie furnizat cel putin un email sau un numar de telefon', 1;
-		END
-		COMMIT TRANSACTION;
-	END TRY
-	BEGIN CATCH
-		ROLLBACK TRANSACTION;
-		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
-	END CATCH;
-END
-GO
-
 CREATE PROCEDURE InsertClient2
 @Nume VARCHAR(30),
 @Prenume VARCHAR(30),
 @Email VARCHAR(50) = NULL,
---@NrTel1 VARCHAR(10) = NULL,
---@NrTel2 VARCHAR(10) = NULL,
 @NrTel VARCHAR(MAX) = NULL,
 @Activ BIT = 1
 AS
 BEGIN
 	BEGIN TRANSACTION;
 	BEGIN TRY
-		INSERT INTO Clienti (Nume, Prenume, Email, Activ)
-		VALUES (@Nume, @Prenume, @Email, @Activ);
-		DECLARE @Cod_Client INT;
-		SET @Cod_Client = SCOPE_IDENTITY();
-
-		--IF @NrTel IS NOT NULL
-		--BEGIN;
-		--	INSERT INTO Telefon (Cod_Client, NrTel)
-		--	VALUES (@Cod_Client, @NrTel);
-		--END
 
 		IF (@Email IS NULL AND @NrTel IS NULL)
 		BEGIN;
 			THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
 		END
+
+		IF @Email IS NOT NULL
+        BEGIN
+			DECLARE @MesajValidareMail VARCHAR(MAX)
+			SET @MesajValidareMail = intern.validareEmail(@Email)
+			IF @MesajValidareMail != 'Email Valid'
+			BEGIN;
+				THROW 50001,  @MesajValidareMail, 1;
+			END
+		END
+
+		INSERT INTO Clienti (Nume, Prenume, Email, Activ)
+		VALUES (@Nume, @Prenume, @Email, @Activ);
+		DECLARE @Cod_Client INT;
+		SET @Cod_Client = SCOPE_IDENTITY();
+
+
 		IF @NrTel IS NOT NULL
 		BEGIN;
 			DECLARE @NrTele VARCHAR(10);
@@ -284,61 +295,12 @@ BEGIN
 	END CATCH;
 END
 GO
-	
-
---EXEC InsertClient @Nume = 'Popescu', @Prenume = 'Ion', @Email = 'ion.popescu@gmail.com', @NrTel = '0712345678';
---EXEC InsertClient @Nume = 'Georgescu', @Prenume = 'Vasile', @Email = 'vasile.georgescu@gmail.com';
---EXEC InsertClient @Nume = 'Stan', @Prenume = 'Mihai';
---SELECT * FROM ClientContactInfo;
-
---DROP TABLE Telefon;
---ALTER TABLE Clienti
---ADD NrTel1 VARCHAR(10), NrTel2 VARCHAR(10);
-
---ALTER TABLE Clienti
---ADD CONSTRAINT CK_Telefon UNIQUE (NrTel1, NrTel2);
---GO
---ALTER TABLE Clienti
---ADD CONSTRAINT CK_TelefonFormat CHECK (
---        (NrTel1 IS NULL OR (NrTel1 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')) AND
---        (NrTel2 IS NULL OR (NrTel2 LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')));
-
---GO
---CREATE OR ALTER PROCEDURE InsertClient2
---@Nume VARCHAR(30),
---@Prenume VARCHAR(30),
---@Email VARCHAR(50) = NULL,
---@NrTel1 VARCHAR(10) = NULL,
---@NrTel2 VARCHAR(10) = NULL,
---@Activ BIT = 1
---AS
---BEGIN
---	SET NOCOUNT ON;
---	BEGIN TRANSACTION;
---	BEGIN TRY
---		IF (@Email IS NULL AND @NrTel1 IS NULL AND @NrTel2 IS NULL)
---		BEGIN;
---			THROW 50001, 'Este nevoie de cel putin un email sau un numar de telefon: ', 1;
---		END
-
---		INSERT INTO Clienti (Nume, Prenume, Email, NrTel1, NrTel2, Activ)
---		VALUES (@Nume, @Prenume, @Email, @NrTel1, @NrTel2, @Activ);
-
---		COMMIT TRANSACTION;
---	END TRY
---	BEGIN CATCH
---		ROLLBACK TRANSACTION;
---		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
---	END CATCH;
---END
---GO
 
 GO
 CREATE VIEW ClientContactInfo AS SELECT c.Nume, c.Prenume, c.Email, STRING_AGG(t.NrTel, ', ') AS NrTelefon, c.Activ FROM Clienti c
 LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client
 GROUP BY Nume, Prenume, Email, Activ;
 GO
-
 
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 'stan.mihai@gmail.com', @NrTel = '0712345688,0711147678';
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel = '0712345578';
@@ -618,7 +580,7 @@ BEGIN
 		--BEGIN TRANSACTION;
 		IF @ModalitateContact NOT IN ('telefon', 'email', 'fizic')
 		BEGIN;
-		THROW 50001, 'Modalitatea de contact trebuie sa fie telefon, email sau fizic', 1;
+		THROW 50001, 'Modalitatea de contact trebuie sa fie ''telefon'', ''email'' sau ''fizic''', 1;
 		END
 		IF @Actiune NOT IN ('revizie', 'reparatie')
 		BEGIN;
@@ -710,27 +672,6 @@ BEGIN
 END
 GO
 
--- uISS1 nu mai este actual
-GO
-CREATE OR ALTER PROCEDURE updateIstoricServiceStatus1
-	@Cod_Istoric INT
---	@Cod_Programare INT
-AS
-BEGIN
-    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 1
-	BEGIN
-		UPDATE IstoricService
-		SET Status = 1
---			Cod_Programare = @Cod_Programare
-		WHERE Cod_Istoric = @Cod_Istoric;
-	END
-	ELSE
-	BEGIN;
-		THROW 500001, 'Nu se poate seta status-ul la o valoare mai mica decat cea curenta', 1;
-	END
-END
-GO
-
 GO
 CREATE OR ALTER PROCEDURE updateIstoricServiceStatus2
     @Cod_Istoric INT,
@@ -795,34 +736,6 @@ EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @Modalita
 SELECT * FROM Programari;
 SELECT * FROM IstoricService;
 
--- NU SE MAI FOLOSESTE uISS0
---EXEC updateIstoricServiceStatus0 @Cod_Istoric = 1;
-
---EXEC updateIstoricServiceStatus1 @Cod_Istoric = 1;
 EXEC updateIstoricServiceStatus2 @Cod_Istoric = 1, @DataPrimire = '10/08/2024', @ProblemeMentionate = 'fara probleme vericule', @ProblemeVizualeConstatate = 'e turbata varule';
 EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = 'i-am facut testul cu moneda', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
   @AlteProblemeDescoperite = 'na' , @AlteReparatii = 'na',@DurataReparatie= 30;
-
-
-
---@Cod_Client INT,
---@Cod_Masina INT,
---@DataProgramare DATETIME,
---@ModalitateContact VARCHAR(15),
---@Actiune VARCHAR(255),
---@IntervalOrar TIME,
---@DurataProgramare INT
-	
-	--uISS2
-    --@DataPrimire DATETIME,
-    --@ProblemeMentionate VARCHAR(499),
-    --@ProblemeVizualeConstatate VARCHAR(499)
-
-	--uISS3
-	--@Cod_Istoric INT,
- --   @OperatiuniEfectuate VARCHAR(499),
- --   @PieseSchimbate VARCHAR(499),
- --   @PieseReparate VARCHAR(499),
- --   @AlteProblemeDescoperite VARCHAR(499),
- --   @AlteReparatii VARCHAR(499),
- --   @DurataReparatie INT
