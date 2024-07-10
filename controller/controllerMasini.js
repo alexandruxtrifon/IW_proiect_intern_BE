@@ -20,10 +20,10 @@ const adaugareMasina = async (req, res) => {
         request.input('Activ', sql.Bit, Activ);
     
         await request.execute('adaugareMasina');
-        res.status(201).json({ message: 'Masina a fost adaugata' });
+        res.status(201).send({ message: 'Masina a fost adaugata' });
       } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'A avut loc o eroare la adaugarea masinii' });
+        res.status(500).send(`A avut loc o eroare la adaugarea masinii: ${err.message}`);
       }
 };
 
@@ -48,10 +48,10 @@ const actualizareMasina = async (req, res) => {
     request.input('Activ', sql.Bit, Activ || null);
 
     await request.execute('actualizareMasina');
-    res.status(201).json({ message: 'Masina a fost actualizata' });
+    res.status(201).send({ message: 'Masina a fost actualizata' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'A avut loc o eroare la actualizarea masinii' });
+    res.status(500).send({ error: 'A avut loc o eroare la actualizarea masinii' });
   }
 };
 
