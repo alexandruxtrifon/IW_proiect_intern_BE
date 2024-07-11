@@ -34,16 +34,16 @@ Cod_Client INT PRIMARY KEY IDENTITY(1,1),
 Nume VARCHAR(30) NOT NULL,
 Prenume VARCHAR(30) NOT NULL,
 Email VARCHAR(50),
-Activ BIT NOT NULL DEFAULT 1);
+Activ BIT NOT NULL);
 --CONSTRAINT CK_Email CHECK (Email LIKE '%_@__%.__%'));
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Clienti: ' + ERROR_MESSAGE();
 END CATCH;
 
-DROP FUNCTION IF EXISTS validareEmail;
+DROP FUNCTION IF EXISTS validareClient;
 GO
-CREATE FUNCTION validareEmail(@Email VARCHAR(50))
+CREATE FUNCTION validareClient(@Nume VARCHAR(MAX), @Prenume VARCHAR(MAX), @Email VARCHAR(MAX), @Activ BIT, @NrTel VARCHAR(MAX))
 RETURNS VARCHAR(MAX)
 AS
 BEGIN
@@ -51,67 +51,148 @@ BEGIN
 	DECLARE @User VARCHAR(50)
 	DECLARE @MailServer VARCHAR(50)
 	DECLARE @Domeniu VARCHAR(50)
-	DECLARE @Error VARCHAR(MAX) = 'Email Valid'
-	
-    IF CHARINDEX('@', @Email) > 0 AND CHARINDEX('.', @Email, CHARINDEX('@', @Email)) > CHARINDEX('@', @Email)
-    BEGIN
-        SET @User = LEFT(@Email, CHARINDEX('@', @Email) - 1)
-        SET @MailServer = SUBSTRING(@Email, CHARINDEX('@', @Email) + 1, CHARINDEX('.', @Email, CHARINDEX('@', @Email)) - CHARINDEX('@', @Email) - 1)
-        SET @Domeniu = RIGHT(@Email, LEN(@Email) - CHARINDEX('.', @Email, CHARINDEX('@', @Email)))
-       
-	       -- user name
-    IF LEN(@User) < 3 
-    BEGIN
-        SET @Error = 'Numele de utilizator al emailului trebuie sa aiba cel putin 3 caractere.'
-    END
-    ELSE IF LEFT(@User, 1) = '.'
-    BEGIN
-        SET @Error = 'Numele de utilizator din email nu poate incepe cu ''.'''
-    END
-    ELSE IF RIGHT(@User, 1) = '.'
-    BEGIN
-        SET @Error = 'Numele de utilizator din email nu se poate incheia cu ''.'''
-    END
-    ELSE IF @User LIKE '%[^a-zA-Z0-9!#$%&''*+/=?^_`{|}~.-]%'
-    BEGIN
-        SET @Error = 'Numele de utilizator din emailcontine caractere invalide. Sunt permise urmatoarele simboluri: ! # $ % & '' , * + / = ? ^ _ ` { | } ~ -'
-    END
-    ELSE IF @User LIKE '%..%'
-    BEGIN
-        SET @Error = 'Numele de utilizator din email nu poate contine puncte consecutive.'
-    END
-    
-    --server mail
-    ELSE IF LEN(@MailServer) < 3
-    BEGIN
-        SET @Error = 'Serverul emailului trebuie sa aiba cel putin 3 caractere.'
-    END
-    ELSE IF @MailServer LIKE '%[^a-zA-Z0-9-]%'
-    BEGIN
-        SET @Error = 'Serverul emailului poate conține doar litere, cifre si liniute.'
-    END
-    ELSE IF LEFT(@MailServer, 1) = '-' OR RIGHT(@MailServer, 1) = '-'
-    BEGIN
-        SET @Error = 'Serverul emailului nu poate incepe sau termina cu o liniuta.'
-    END
-    
-    -- domeniu
-    ELSE IF LEN(@Domeniu) < 2
-    BEGIN
-        SET @Error = 'Domeniul emailului trebuie sa contina cel putin 2 caractere.'
-    END
-    ELSE IF @Domeniu LIKE '%[^a-zA-Z]%'
-    BEGIN
-        SET @Error = 'Domeniul emailului trebuie sa contina doar litere.'
-    END
+	DECLARE @Error VARCHAR(MAX) = 'valid';
 
-    END
+	IF @Activ NOT IN (0, 1) OR @Activ IS NULL
+	BEGIN;
+		SET @Error = 'Trebuie specificat daca clientul este Activ(1) sau Inactiv(0)';
+		RETURN @Error
+	END
+
+	IF (@Email IS NULL AND @NrTel IS NULL)
+		BEGIN;
+		SET @Error = 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon'
+		RETURN @Error;
+		END
+
+	--IF (@NrTel NOT LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND LEN(@NrTel) = 10)
+	--	BEGIN;
+	--	SET @Error = 'Numarul de telefon fgkjhgfkjhgf'
+	--	RETURN @Error;
+	--	END
+
+
+	IF @Email IS NOT NULL
+	BEGIN;
+			IF CHARINDEX('@', @Email) > 0 AND CHARINDEX('.', @Email, CHARINDEX('@', @Email)) > CHARINDEX('@', @Email)
+			BEGIN
+				SET @User = LEFT(@Email, CHARINDEX('@', @Email) - 1)
+				SET @MailServer = SUBSTRING(@Email, CHARINDEX('@', @Email) + 1, CHARINDEX('.', @Email, CHARINDEX('@', @Email)) - CHARINDEX('@', @Email) - 1)
+				SET @Domeniu = RIGHT(@Email, LEN(@Email) - CHARINDEX('.', @Email, CHARINDEX('@', @Email)))
+
+			IF LEN(@User) < 3 
+			BEGIN;
+				SET @Error = 'Numele de utilizator al emailului trebuie sa aiba cel putin 3 caractere.'
+				RETURN @Error;
+
+			END
+
+			ELSE IF LEN(@User) > 32 
+			BEGIN;
+				SET @Error = 'Numele de utilizator al emailului trebuie sa aiba maxim 32 de caractere.'
+				RETURN @Error;
+			END
+
+			ELSE IF LEFT(@User, 1) = '.'
+			BEGIN;
+				SET @Error = 'Numele de utilizator din email nu poate incepe cu ''.'''
+				RETURN @Error;
+			END
+
+			ELSE IF RIGHT(@User, 1) = '.'
+			BEGIN
+				SET @Error = 'Numele de utilizator din email nu se poate incheia cu ''.'''
+				RETURN @Error;
+			END
+
+			ELSE IF @User LIKE '%[^a-zA-Z0-9!#$%&''*+/=?^_`{|}~.-]%'
+			BEGIN;
+				SET @Error = 'Numele de utilizator din emailcontine caractere invalide. Sunt permise urmatoarele simboluri: ! # $ % & '' , * + / = ? ^ _ ` { | } ~ -'
+				RETURN @Error;
+			END
+			ELSE IF @User LIKE '%..%'
+			BEGIN;
+				SET @Error = 'Numele de utilizator din email nu poate contine puncte consecutive.'
+				RETURN @Error;
+			END
+    
+			--server mail
+			ELSE IF LEN(@MailServer) < 3
+			BEGIN;
+				SET @Error = 'Serverul emailului trebuie sa aiba cel putin 3 caractere.'
+				RETURN @Error;
+			END
+
+			ELSE IF LEN(@MailServer) > 24
+			BEGIN;
+				SET @Error = 'Serverul emailului trebuie sa aiba maxim 24 de caractere.'
+				RETURN @Error;
+
+			END
+
+			ELSE IF @MailServer LIKE '%[^a-zA-Z0-9-]%'
+			BEGIN;
+				SET @Error = 'Serverul emailului poate conține doar litere, cifre si liniute.'
+				RETURN @Error;
+			END
+
+			ELSE IF LEFT(@MailServer, 1) = '-' OR RIGHT(@MailServer, 1) = '-'
+			BEGIN;
+				SET @Error = 'Serverul emailului nu poate incepe sau termina cu o liniuta.'
+				RETURN @Error;
+			END
+    
+			-- domeniu
+			ELSE IF LEN(@Domeniu) < 2
+			BEGIN;
+				SET @Error = 'Domeniul emailului trebuie sa contina cel putin 2 caractere.'
+				RETURN @Error;
+
+			END
+			ELSE IF @Domeniu LIKE '%[^a-zA-Z]%'
+			BEGIN;
+				SET @Error = 'Domeniul emailului trebuie sa contina doar litere.'
+			END
+	
+			ELSE IF LEN(@Domeniu) > 5 
+			BEGIN;
+				SET @Error = 'Numele de utilizator al emailului trebuie sa aiba maxim 32 de caractere.'
+			END
+		END
     ELSE
-    BEGIN
+    BEGIN;
         SET @Error = 'Formatul emailului este incorect.'
     END
+	END
 
-    RETURN @Error
+	   -- IF @NrTel IS NOT NULL
+    --BEGIN
+    --    DECLARE @NrTelCopy VARCHAR(MAX) = @NrTel;
+    --    DECLARE @SingleNrTel VARCHAR(10);
+    --    DECLARE @Pos INT;
+
+    --    SET @Pos = CHARINDEX(',', @NrTelCopy);
+    --    WHILE @Pos > 0 
+    --    BEGIN
+    --        SET @SingleNrTel = LTRIM(RTRIM(LEFT(@NrTelCopy, @Pos - 1)));
+    --        IF @SingleNrTel LIKE '%[^0-9]%' OR LEN(@SingleNrTel) != 10
+    --        BEGIN
+    --            SET @Error = 'Numarul de telefon trebuie sa contina exact 10 cifre.';
+    --            RETURN @Error;
+    --        END
+    --        SET @NrTelCopy = LTRIM(RTRIM(RIGHT(@NrTelCopy, LEN(@NrTelCopy) - @Pos)));
+    --        SET @Pos = CHARINDEX(',', @NrTelCopy);
+    --    END
+
+    --    IF @NrTelCopy LIKE '%[^0-9]%' OR LEN(@NrTelCopy) != 10
+    --    BEGIN
+    --        SET @Error = 'Numarul de telefon trebuie sa contina exact 10 cifre.';
+    --        RETURN @Error;
+    --    END
+    --END
+
+	RETURN @Error;
+
 END
 GO
 
@@ -127,34 +208,36 @@ BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
 END CATCH;
 
-BEGIN TRY
-CREATE TABLE MarciAuto(
-Cod_Marca INT PRIMARY KEY IDENTITY(1,1),
-Marca VARCHAR(50) NOT NULL);
-END TRY
-BEGIN CATCH; 
-PRINT 'Eroare la crearea tabelului MarciAuto: ' + ERROR_MESSAGE();
-END CATCH;
+--DROP TABLE MarciAuto;
 
-BEGIN TRY
-INSERT INTO MarciAuto (Marca) VALUES
-('Dacia'),
-('Audi'),
-('BMW'),
-('Mercedes'),
-('Volkswagen'),
-('Toyota'),
-('Ford');
-END TRY
-BEGIN CATCH 
-PRINT 'Eroare la inserarea valorilor in tabelul MarciAuto' + ERROR_MESSAGE();
-END CATCH;
+--BEGIN TRY
+--CREATE TABLE MarciAuto(
+--Cod_Marca INT PRIMARY KEY IDENTITY(1,1),
+--Marca VARCHAR(50) NOT NULL);
+--END TRY
+--BEGIN CATCH; 
+--PRINT 'Eroare la crearea tabelului MarciAuto: ' + ERROR_MESSAGE();
+--END CATCH;
+
+--BEGIN TRY
+--INSERT INTO MarciAuto (Marca) VALUES
+--('Dacia'),
+--('Audi'),
+--('BMW'),
+--('Mercedes'),
+--('Volkswagen'),
+--('Toyota'),
+--('Ford');
+--END TRY
+--BEGIN CATCH 
+--PRINT 'Eroare la inserarea valorilor in tabelul MarciAuto' + ERROR_MESSAGE();
+--END CATCH;
 
 BEGIN TRY
 CREATE TABLE Masini(
 Cod_Masina INT PRIMARY KEY IDENTITY(1,1),
 Cod_Client INT,
-Cod_Marca INT,
+--Cod_Marca INT,
 NrInmatriculare VARCHAR(15) NOT NULL,
 VIN VARCHAR(17) NOT NULL,
 Model VARCHAR(50),
@@ -166,7 +249,7 @@ KWP AS (CP * 0.745) PERSISTED,
 KWh DECIMAL(5,2),
 Activ BIT NOT NULL DEFAULT 1,
 FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
-FOREIGN KEY (Cod_Marca) REFERENCES MarciAuto(Cod_Marca) ON DELETE CASCADE,
+--FOREIGN KEY (Cod_Marca) REFERENCES MarciAuto(Cod_Marca) ON DELETE CASCADE,
 CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][0-9][A-Z][A-Z][A-Z]'
 OR NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][A-Z][A-Z][A-Z]'),
 --CONSTRAINT CK_VIN CHECK (VIN NOT LIKE '%[^a-zA-Z0-9%]' AND LEN(VIN) = 17),
@@ -258,26 +341,32 @@ CREATE PROCEDURE InsertClient2
 @Prenume VARCHAR(30),
 @Email VARCHAR(50) = NULL,
 @NrTel VARCHAR(MAX) = NULL,
-@Activ BIT = 1
+@Activ BIT
 AS
 BEGIN
 	BEGIN TRANSACTION;
 	BEGIN TRY
+	DECLARE @Message VARCHAR(MAX)
+	SET @Message = intern.validareClient(@Nume, @Prenume, @Email, @Activ, @NrTel)
+	--IF (@Email IS NULL AND @NrTel IS NULL)
+	--	BEGIN;
+	--		SET @Message = 'Trebuie sa fie furnizat cel putin un email su un numar de telefon';
+	--		--THROW 50001, @Message, 1;
+	--		RETURN @Message;
+	--	END
 
-		IF (@Email IS NULL AND @NrTel IS NULL)
+
+		--IF @Email IS NOT NULL
+		--BEGIN
+		---DECLARE @Message VARCHAR(MAX)
+		--SET @Message = intern.validareClient(@Nume, @Prenume, @Email, @Activ, @NrTel)
+
+		IF @Message != 'valid'
 		BEGIN;
-			THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
+			--THROW 50001, @Message, 1;
+			PRINT @Message;
 		END
-
-		IF @Email IS NOT NULL
-        BEGIN
-			DECLARE @MesajValidareMail VARCHAR(MAX)
-			SET @MesajValidareMail = intern.validareEmail(@Email)
-			IF @MesajValidareMail != 'Email Valid'
-			BEGIN;
-				THROW 50001,  @MesajValidareMail, 1;
-			END
-		END
+	--END
 
 		INSERT INTO Clienti (Nume, Prenume, Email, Activ)
 		VALUES (@Nume, @Prenume, @Email, @Activ);
@@ -305,7 +394,8 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION;
-		PRINT 'Eroare la inserarea datelor: ' + ERROR_MESSAGE();
+		THROW 50001, @Message, 1;
+		--RETURN @Message;
 	END CATCH;
 END
 GO
@@ -316,12 +406,12 @@ LEFT JOIN Telefon t ON c.Cod_Client = t.Cod_Client
 GROUP BY c.Cod_Client, Nume, Prenume, Email, Activ;
 GO
 
-EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 's.tan.mihai@gmail.com', @NrTel = '0712345688,0711147678';
-EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel = '0712345578';
-EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com';
-EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel = '0712345678';
-EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn';
-EXEC InsertClient2 @Nume = 'Popescghfgfho', @Prenume = 'Cristi', @NrTel = '0712345678,       0712345678';
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 's.tan.mihai@gmail.com', @NrTel = '0712345688,0711147678', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel = '0712345578', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel = '0712345678', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Popescghfgfho', @Prenume = 'Cristi', @NrTel = '0712345678,       0712345678', @Activ= 1;
 
 SELECT * FROM ClientContactInfo;
 SELECT * FROM Telefon;
@@ -347,11 +437,11 @@ BEGIN
 END
 GO
 
-INSERT INTO Masini (Cod_Client, Cod_Marca, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh)
+INSERT INTO Masini (Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh)
 VALUES
-  (1, 1, 'BU123ABC', '1HD1FAL11NY500561', 'Dacia Logan', 2020, 'benzina', 1.6, 100, NULL),
-  (2, 3, 'AB123ECD', '1YVHP84DX55N13025', 'BMW X5', 2022, 'diesel', 3.0, 300, NULL),
-  (3, 2, 'TM345JEF', '3D73Y3CL6BG585460', 'Tesla Model 3', 2023, 'electric', NULL, 350, 100.00);
+  (1, 'BU123ABC', '1HD1FAL11NY500561', 'Dacia Logan', 2020, 'benzina', 1.6, 100, NULL),
+  (2, 'AB123ECD', '1YVHP84DX55N13025', 'BMW X5', 2022, 'diesel', 3.0, 300, NULL),
+  (3, 'TM345JEF', '3D73Y3CL6BG585460', 'Tesla Model 3', 2023, 'electric', NULL, 350, 100.00);
 
 SELECT * FROM Masini;
 
@@ -378,6 +468,7 @@ BEGIN
 			IF(@CurrentEmail IS NULL AND @CurrentNrTel IS NULL)
 			BEGIN;
             THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
+
 			END
         END
 
@@ -452,7 +543,6 @@ EXEC UpdateClient @Cod_Client = 1, @NrTel = '0771456266,0712345688,0711147678';
 DROP FUNCTION IF EXISTS validareMasina
 GO
 CREATE FUNCTION validareMasina( @Cod_Client VARCHAR(MAX),
-    @Cod_Marca VARCHAR(30),
     @NrInmatriculare VARCHAR(MAX),
     @VIN VARCHAR(MAX),
     @Model VARCHAR(30),
@@ -473,23 +563,25 @@ BEGIN
 		RETURN @Message;
 	END
 
-    IF TRY_CONVERT(INT, @Cod_Client) IS NULL
+    ELSE IF TRY_CONVERT(INT, @Cod_Client) IS NULL
     BEGIN
         SET @Message = 'Cod_Client trebuie sa fie de tip INT';
         RETURN @Message;
     END
 
 	--AN FABR-----
-    IF @AnFabr IS NULL
+    ELSE IF @AnFabr IS NULL
     BEGIN
         SET @Message = 'Anul de fabricatie nu poate fi null';
 		RETURN @Message;
     END
+
     ELSE IF @AnFabr < 1900
     BEGIN
         SET @Message = 'Anul de fabricatie nu poate fi mai mic de 1900';
 		RETURN @Message;
     END
+
     ELSE IF @AnFabr >= YEAR(GETDATE()) + 1
     BEGIN
         SET @Message = 'Anul de fabricatie nu poate fi din viitor';
@@ -497,60 +589,56 @@ BEGIN
 		END
 
 	---VIN CHECK
-    IF LEN(@VIN) != 17
+    ELSE IF LEN(@VIN) != 17
 	BEGIN
 		SET @Message = 'Seria sasiului e invalida';
 		RETURN @Message;
 	END
 
-	IF ISNUMERIC(@VIN) = 1
+	ELSE IF ISNUMERIC(@VIN) = 1
 	BEGIN
 		SET @Message = 'Seria sasiului nu poate sa fie alcatuita numai din cifre';
 		RETURN @Message;
 	END
-	IF @VIN LIKE '%[^a-zA-Z0-9]%'
+	ELSE IF @VIN LIKE '%[^a-zA-Z0-9]%'
 	BEGIN
 		SET @Message = 'Seria sasiului este compusa numai din litere si cifre'
 		RETURN @Message;
 		END
 
-	IF TRY_CAST(@VIN AS FLOAT) IS NOT NULL
+	ELSE IF TRY_CAST(@VIN AS FLOAT) IS NOT NULL
     BEGIN
         SET @Message = 'VIN-ul trebuie sa fie un sir de caractere';
         RETURN @Message;
     END
 
 	---TIP MOTORIZARE
-	    IF @TipMotorizare NOT IN ('Benzina', 'Diesel', 'Electric', 'Hibrid')
+	ELSE IF @TipMotorizare NOT IN ('Benzina', 'Diesel', 'Electric', 'Hibrid')
     BEGIN
         SET @Message = 'Tipul de motorizare trebuie sa fie unul dintre: Benzina, Diesel, Electric, Hibrid';
         RETURN @Message;
     END
+
 	-- CAPACITATE MOTOR
-	    IF @CapacitateMotor IS NOT NULL AND (@CapacitateMotor < 0.8 OR @CapacitateMotor > 8.0)
+	ELSE IF @CapacitateMotor IS NOT NULL AND (@CapacitateMotor < 0.8 OR @CapacitateMotor > 8.0)
     BEGIN
         SET @Message = 'Capacitatea motorului trebuie sa fie intre 0.8 si 8.0 litri';
         RETURN @Message;
     END
 
 	-- CAI PUTERE
-		IF @CP < 0 OR @CP > 2000
+	ELSE IF @CP < 0 OR @CP > 2000
     BEGIN
         SET @Message = 'Puterea motorului trebuie sa fie intre 0 si 2000 CP';
         RETURN @Message;
-	
+	END
+
 	-- BATERIE MASINI ELECTRICE/HIBRIDE
-    IF (@TipMotorizare = 'Electric' OR @TipMotorizare = 'Hibrid') AND (@KWh IS NULL OR @KWh <= 0)
+    ELSE IF (@TipMotorizare = 'Electric' OR @TipMotorizare = 'Hibrid') AND (@KWh IS NULL OR @KWh <= 0)
     BEGIN
         SET @Message = 'Capacitatea bateriei trebuie sa fie mai mare de 0';
         RETURN @Message;
     END
-
-
-
-    END
-
-
 
     RETURN @Message;
 END
@@ -559,7 +647,6 @@ GO
 GO
 CREATE PROCEDURE adaugareMasina
 @Cod_Client INT,
-@Cod_Marca VARCHAR(30),
 @NrInmatriculare VARCHAR(10),
 @VIN VARCHAR(17),
 @Model VARCHAR(30),
@@ -575,7 +662,6 @@ BEGIN;
     BEGIN TRY
 		DECLARE @Message VARCHAR(MAX);
 		SET @Message = intern.validareMasina(@Cod_Client,
-    @Cod_Marca,
     @NrInmatriculare,
     @VIN,
     @Model,
@@ -590,11 +676,11 @@ BEGIN;
 			PRINT @Message
 		END
         INSERT INTO Masini (
-            Cod_Client, Cod_Marca, NrInmatriculare, VIN, Model, AnFabr, 
+            Cod_Client, NrInmatriculare, VIN, Model, AnFabr, 
             TipMotorizare, CapacitateMotor, CP, KWh, Activ
         )
         VALUES (
-            @Cod_Client, @Cod_Marca, @NrInmatriculare, @VIN, @Model, @AnFabr, 
+            @Cod_Client, @NrInmatriculare, @VIN, @Model, @AnFabr, 
             @TipMotorizare, @CapacitateMotor, @CP, @KWh, @Activ
         );
 		
@@ -612,7 +698,6 @@ GO
 CREATE PROCEDURE actualizareMasina
 @Cod_Masina INT,
 @Cod_Client INT = NULL,
-@Cod_marca INT = NULL,
 @NrInmatriculare VARCHAR(15) = NULL,
 @VIN VARCHAR(17) = NULL,
 @Model VARCHAR(50) = NULL,
@@ -625,15 +710,29 @@ CREATE PROCEDURE actualizareMasina
 AS
 BEGIN
 	BEGIN TRANSACTION;
-	BEGIN TRY
+	BEGIN TRY		DECLARE @Message VARCHAR(MAX);
+		SET @Message = intern.validareMasina(@Cod_Client,
+    @NrInmatriculare,
+    @VIN,
+    @Model,
+    @AnFabr,
+    @TipMotorizare ,
+    @CapacitateMotor ,
+    @CP,
+    @KWh)
+
+	IF @Message != 'valid'
+	BEGIN;
+		PRINT @Message
+	END
 	IF NOT EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina)
 	BEGIN;
-		THROW 50001, 'Masina nu exista', 1;
+		SET @Message = 'Masina nu exista';
+		THROW 50001, @Message, 1;
 	END
 	UPDATE Masini
 	SET
         Cod_Client = COALESCE(@Cod_Client, Cod_Client),
-        Cod_Marca = COALESCE(@Cod_Marca, Cod_Marca),
         NrInmatriculare = COALESCE(@NrInmatriculare, NrInmatriculare),
         VIN = COALESCE(@VIN, VIN),
         Model = COALESCE(@Model, Model),
@@ -649,7 +748,7 @@ BEGIN
 	END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
-        THROW;
+        THROW 50001, @Message, 1;
     END CATCH;
 END
 GO
@@ -661,6 +760,13 @@ AS
 BEGIN
     BEGIN TRANSACTION;
     BEGIN TRY
+	DECLARE @Message VARCHAR(MAX)
+	IF NOT EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina)
+	BEGIN;
+		SET @Message = 'Masina pe care incerc sa o dezactivez nu exista';
+		THROW 50001, @Message, 1;
+	END
+
         UPDATE Masini
         SET Activ = 0
         WHERE Cod_Masina = @Cod_Masina;
@@ -669,7 +775,7 @@ BEGIN
     END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
-        THROW;
+        THROW 50001, @Message, 1;
     END CATCH;
 END
 GO
@@ -784,32 +890,6 @@ BEGIN
         AlteReparatii = CASE WHEN @NewStatus = 3 THEN COALESCE(@AlteReparatii, AlteReparatii) ELSE AlteReparatii END,
         DurataReparatie = CASE WHEN @NewStatus = 3 THEN COALESCE(@DurataReparatie, DurataReparatie) ELSE DurataReparatie END
     WHERE Cod_Istoric = @Cod_Istoric;
-END
-GO
-
-GO
-CREATE OR ALTER PROCEDURE updateIstoricServiceStatus0
-	@Cod_Istoric INT
-AS
-BEGIN
-    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) = 0
-    BEGIN
-		UPDATE IstoricService
-			SET Status = 0,
-			DataPrimire = NULL,
-			ProblemeMentionate = NULL,
-			OperatiuniEfectuate = NULL,
-			PieseSchimbate = NULL,
-			PieseReparate = NULL,
-			AlteProblemeDescoperite = NULL,
-			AlteReparatii = NULL,
-			DurataReparatie = NULL
-		WHERE Cod_Istoric = @Cod_Istoric;
-	END
-	ELSE
-	BEGIN;
-	THROW 500001, 'Nu se poate seta status-ul la o valoare mai mica decat cea curenta', 1;
-	END
 END
 GO
 

@@ -2,6 +2,17 @@ const {sql, poolPromise} = require('../config');
 
 const adaugareClient = async (req, res) => {
     const {Nume, Prenume, Email, NrTel, Activ} = req.body;
+
+    if (!Nume || !Prenume || !Email || !NrTel || !Activ) {
+        return res.status(400).json({ error: 'Toate câmpurile sunt obligatorii: Nume, Prenume, Email, NrTel, Activ.' });
+    }
+    if (!Array.isArray(NrTel) || NrTel.some(nr => typeof nr !== 'string')) {
+        return res.status(400).json({ error: 'NrTel trebuie să fie un array de string-uri.' });
+    }
+    if (typeof Activ !== 0 && Activ !== 1) {
+        return res.status(400).json({ error: 'Statusul activ trebuie sa fie ori \'0\' ori \'1\'' });
+    }
+
     const telefoane = NrTel.join(',');
 
     try {
@@ -14,10 +25,10 @@ const adaugareClient = async (req, res) => {
         request.input('NrTel', sql.VarChar(sql.MAX), telefoane);
         request.input('Activ', sql.Bit, Activ);
         await request.execute('InsertClient2');
-        res.status(201).json({message: 'Clientul a fost adaugat cu succes'});
+        res.status(201).send({message: 'Clientul a fost adaugat cu succes'});
     } catch (err) {
         console.error(err);
-        res.status(500).json({error: 'A crapat ceva cand adaugam clientul'});
+        res.status(500).send({error: `${err.message}`});
     }
 };
 
@@ -58,6 +69,8 @@ const dezactivareClient = async (req, res) => {
     res.status(500).json({ error: 'S-a produs o eroare la dezactivarea clientului' });
   }
 };
+
+
 
 module.exports = {
     adaugareClient,

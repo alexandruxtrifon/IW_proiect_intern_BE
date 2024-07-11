@@ -1,14 +1,14 @@
 const {sql, poolPromise} = require('../config');
 
 const adaugareMasina = async (req, res) => {
-    const { Cod_Client, Cod_Marca, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh, Activ} = req.body;
+    const { Cod_Client, /*Cod_Marca,*/ NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh, Activ} = req.body;
   
     try {
         const pool = await poolPromise;
         const request = pool.request();
     
         request.input('Cod_Client', sql.Int, Cod_Client);
-        request.input('Cod_Marca', sql.Int, Cod_Marca);
+        //request.input('Cod_Marca', sql.Int, Cod_Marca);
         request.input('NrInmatriculare', sql.VarChar(15), NrInmatriculare);
         request.input('VIN', sql.VarChar(17), VIN);
         request.input('Model', sql.VarChar(50), Model);
@@ -51,7 +51,7 @@ const actualizareMasina = async (req, res) => {
     res.status(201).send({ message: 'Masina a fost actualizata' });
   } catch (err) {
     console.error(err);
-    res.status(500).send({ error: 'A avut loc o eroare la actualizarea masinii' });
+    res.status(500).send({ error: `A avut loc o eroare la actualizarea masinii: ${err.message}` });
   }
 };
 
@@ -68,7 +68,7 @@ const dezactivareMasina = async (req, res) => {
     res.status(200).json({ message: 'Masina a fost dezactivata' });
 } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'A crapat ceva cand dezactivam masina' });
+    res.status(500).json({ error: `A crapat ceva cand dezactivam masina: ${err.message}` });
 }
 };
 
