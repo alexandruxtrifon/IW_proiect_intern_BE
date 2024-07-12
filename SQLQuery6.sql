@@ -1,18 +1,18 @@
 USE [internship2024]
 
 SELECT * FROM ClientContactInfo;
-
-
+EXEC getClientiInactivi;
+SELECT * FROM Programari;
 
 DELETE FROM Clienti;
-EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 's.tan.mihai@gmail.com', @NrTel = '0712345688,0711147678', @Activ =1;
+EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 's.tan.mihai@gmail.com', @NrTel = '0112345688,0711147678', @Activ =1;
 EXEC InsertClient2 @Nume = 'Andrei', @Prenume = 'Gigel', @Email = 'andreigigel@gmail.com', @NrTel = '0712345578', @Activ =1;
 EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Mihaiii', @Email = 'popescu.mihai@gmail.com', @Activ =1;
 EXEC InsertClient2 @Nume = 'Dumitru', @Prenume = 'Ion', @NrTel = '0712345678', @Activ =1;
-EXEC InsertClient2 @Nume = 'Dumnezei', @Prenume = 'Ionel', @Activ =1;
+EXEC InsertClient2 @Nume = 'Dumnezei', @Prenume = 'Ionel', @Activ =1, @NrTel = 'ggfkjh';
 EXEC InsertClient2 @Nume = 'Mati', @Prenume = 'Cristi', @NrTel = '0712345678,       0712345678', @Activ =1;
 
-EXEC adaugareMasina @Cod_Client = 2, @NrInmatriculare='AC488VCD', @VIN='1HD1FAL11NY500561', @Model='Octavia', @AnFabr=' ', 
+EXEC adaugareMasina @Cod_Client = 2, @NrInmatriculare='AC488VCD', @VIN='1HD1FAL11NY500561', @Model='Octavia', @AnFabr=2050, 
             @TipMotorizare='benzina', @CapacitateMotor=2.0, @CP=150, @KWh=NULL;
 			SELECT * FROM Masini;
 

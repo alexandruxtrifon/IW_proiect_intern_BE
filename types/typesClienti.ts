@@ -16,9 +16,8 @@ export interface ApiResponse {
   }
 
 const {sql, poolPromise} = require('../config');
-import { ClientRequestBody } from '../types';
 
-const adaugareClient = async (req, res) => {
+const adaugareClient = async (req: any, res: any) => {
     const {Nume, Prenume, Email, NrTel, Activ} = req.body as ClientRequestBody;
     const telefoane = NrTel.join(',');
 
@@ -33,7 +32,7 @@ const adaugareClient = async (req, res) => {
         request.input('Activ', sql.Bit, Activ);
         await request.execute('InsertClient2');
         res.status(201).send({message: 'Clientul a fost adaugat cu succes'});
-    } catch (err) {
+    } catch (err: any) {
         console.error(err);
         res.status(500).send({error: `${err.message}`});
     }

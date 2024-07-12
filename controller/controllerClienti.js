@@ -1,19 +1,28 @@
+const { type } = require('express/lib/response');
 const {sql, poolPromise} = require('../config');
 
 const adaugareClient = async (req, res) => {
     const {Nume, Prenume, Email, NrTel, Activ} = req.body;
+    console.log(typeof Email)
+    console.log(typeof NrTel)
 
-    if (!Nume || !Prenume || !Email || !NrTel || !Activ) {
-        return res.status(400).json({ error: 'Toate câmpurile sunt obligatorii: Nume, Prenume, Email, NrTel, Activ.' });
+    if (!Nume || !Prenume || !Activ) {
+        return res.status(400).json({ error: 'Numele si prenumele, si statusul sunt obligatorii' });
     }
+    if (!req.body.hasOwnProperty('Email') && !req.body.hasOwnProperty('NrTel')) {
+        return res.status(400).json({ error: 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon' });
+    }
+    if(typeof NrTel == 'string' && Email === undefined){
     if (!Array.isArray(NrTel) || NrTel.some(nr => typeof nr !== 'string')) {
-        return res.status(400).json({ error: 'NrTel trebuie să fie un array de string-uri.' });
-    }
-    if (typeof Activ !== 0 && Activ !== 1) {
-        return res.status(400).json({ error: 'Statusul activ trebuie sa fie ori \'0\' ori \'1\'' });
+        return res.status(400).json({ error: 'NrTel trebuie sa fie un array de string-uri.' });
+    }}
+    //if (typeof Activ !== 0 && Activ !== 1) {
+    if (typeof Activ !== 'number'){
+        return res.status(400).json({ error: 'Statusul activ trebuie sa fie un numar' });
     }
 
-    const telefoane = NrTel.join(',');
+    //const telefoane = NrTel.join(',');
+    const telefoane = NrTel ? NrTel.join(',') : null;
 
     try {
         const pool = await poolPromise;

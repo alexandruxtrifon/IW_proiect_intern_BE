@@ -35,7 +35,6 @@ Nume VARCHAR(30) NOT NULL,
 Prenume VARCHAR(30) NOT NULL,
 Email VARCHAR(50),
 Activ BIT NOT NULL);
---CONSTRAINT CK_Email CHECK (Email LIKE '%_@__%.__%'));
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Clienti: ' + ERROR_MESSAGE();
@@ -47,11 +46,18 @@ CREATE FUNCTION validareClient(@Nume VARCHAR(MAX), @Prenume VARCHAR(MAX), @Email
 RETURNS VARCHAR(MAX)
 AS
 BEGIN
-	--DECLARE @EvalEmail AS BIT = 1
 	DECLARE @User VARCHAR(50)
 	DECLARE @MailServer VARCHAR(50)
 	DECLARE @Domeniu VARCHAR(50)
 	DECLARE @Error VARCHAR(MAX) = 'valid';
+	
+	IF @Nume LIKE '%[^a-zA-Z%]'
+	BEGIN
+		SET @Error = 'Numele poate fi alcatuit numai din litere'
+		RETURN @Error;
+	END
+
+
 
 	IF @Activ NOT IN (0, 1) OR @Activ IS NULL
 	BEGIN;
@@ -164,32 +170,42 @@ BEGIN
         SET @Error = 'Formatul emailului este incorect.'
     END
 	END
+	---- TELEFOOON
+	    IF @NrTel IS NOT NULL
+    BEGIN
+        DECLARE @NrTelArray VARCHAR(MAX) = @NrTel;
+        DECLARE @SingleNrTel VARCHAR(MAX);
+        DECLARE @Pos INT;
 
-	   -- IF @NrTel IS NOT NULL
-    --BEGIN
-    --    DECLARE @NrTelCopy VARCHAR(MAX) = @NrTel;
-    --    DECLARE @SingleNrTel VARCHAR(10);
-    --    DECLARE @Pos INT;
+        SET @Pos = CHARINDEX(',', @NrTelArray);
+        WHILE @Pos > 0 
+        BEGIN
+            SET @SingleNrTel = LTRIM(RTRIM(LEFT(@NrTelArray, @Pos - 1)));
+            IF @SingleNrTel LIKE '%[^0-9]%' OR LEN(@SingleNrTel) != 10
+            BEGIN
+                SET @Error = 'Numarul de telefon trebuie sa contina 10 cifresse';
+                --RETURN @Error;
+            END
+			ELSE IF @SingleNrTel LIKE '%^0[^237][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9]%'
+			BEGIN
+				SET @Error = 'Numarul de telefon trebuie sa aiba prefix romanesc'
+			END
+            SET @NrTelArray = LTRIM(RTRIM(RIGHT(@NrTelArray, LEN(@NrTelArray) - @Pos)));
+            SET @Pos = CHARINDEX(',', @NrTelArray);
+        END
 
-    --    SET @Pos = CHARINDEX(',', @NrTelCopy);
-    --    WHILE @Pos > 0 
-    --    BEGIN
-    --        SET @SingleNrTel = LTRIM(RTRIM(LEFT(@NrTelCopy, @Pos - 1)));
-    --        IF @SingleNrTel LIKE '%[^0-9]%' OR LEN(@SingleNrTel) != 10
-    --        BEGIN
-    --            SET @Error = 'Numarul de telefon trebuie sa contina exact 10 cifre.';
-    --            RETURN @Error;
-    --        END
-    --        SET @NrTelCopy = LTRIM(RTRIM(RIGHT(@NrTelCopy, LEN(@NrTelCopy) - @Pos)));
-    --        SET @Pos = CHARINDEX(',', @NrTelCopy);
-    --    END
 
-    --    IF @NrTelCopy LIKE '%[^0-9]%' OR LEN(@NrTelCopy) != 10
-    --    BEGIN
-    --        SET @Error = 'Numarul de telefon trebuie sa contina exact 10 cifre.';
-    --        RETURN @Error;
-    --    END
-    --END
+        IF LEN(@NrTelArray) != 10
+        BEGIN
+            SET @Error = 'Numarul de telefon trebuie sa contina 10 cifreeeej';
+            --RETURN @Error;
+        END
+		ELSE IF @SingleNrTel LIKE '%^0[^237][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9]%'
+			BEGIN
+				SET @Error = 'Numarul de telefon trebuie sa aiba prefix RO'
+			END
+    END
+
 
 	RETURN @Error;
 
@@ -207,31 +223,6 @@ END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
 END CATCH;
-
---DROP TABLE MarciAuto;
-
---BEGIN TRY
---CREATE TABLE MarciAuto(
---Cod_Marca INT PRIMARY KEY IDENTITY(1,1),
---Marca VARCHAR(50) NOT NULL);
---END TRY
---BEGIN CATCH; 
---PRINT 'Eroare la crearea tabelului MarciAuto: ' + ERROR_MESSAGE();
---END CATCH;
-
---BEGIN TRY
---INSERT INTO MarciAuto (Marca) VALUES
---('Dacia'),
---('Audi'),
---('BMW'),
---('Mercedes'),
---('Volkswagen'),
---('Toyota'),
---('Ford');
---END TRY
---BEGIN CATCH 
---PRINT 'Eroare la inserarea valorilor in tabelul MarciAuto' + ERROR_MESSAGE();
---END CATCH;
 
 BEGIN TRY
 CREATE TABLE Masini(
@@ -336,7 +327,7 @@ PRINT 'Eroare la crearea tabelului ''IstoricService''' + ERROR_MESSAGE();
 END CATCH;
 
 GO
-CREATE PROCEDURE InsertClient2
+CREATE OR ALTER PROCEDURE InsertClient2
 @Nume VARCHAR(30),
 @Prenume VARCHAR(30),
 @Email VARCHAR(50) = NULL,
@@ -348,12 +339,17 @@ BEGIN
 	BEGIN TRY
 	DECLARE @Message VARCHAR(MAX)
 	SET @Message = intern.validareClient(@Nume, @Prenume, @Email, @Activ, @NrTel)
-	--IF (@Email IS NULL AND @NrTel IS NULL)
-	--	BEGIN;
-	--		SET @Message = 'Trebuie sa fie furnizat cel putin un email su un numar de telefon';
-	--		--THROW 50001, @Message, 1;
-	--		RETURN @Message;
-	--	END
+	IF @Message != 'valid'
+	BEGIN;
+	THROW 50001, @Message, 1;
+	PRINT @Message
+	END
+	IF (@Email IS NULL AND @NrTel IS NULL)
+		BEGIN;
+			SET @Message = 'Trebuie sa fie furnizat cel putin un email su un numar de telefon';
+			THROW 50007, @Message, 1;
+			--RETURN @Message;
+		END
 
 
 		--IF @Email IS NOT NULL
@@ -361,12 +357,13 @@ BEGIN
 		---DECLARE @Message VARCHAR(MAX)
 		--SET @Message = intern.validareClient(@Nume, @Prenume, @Email, @Activ, @NrTel)
 
-		IF @Message != 'valid'
-		BEGIN;
-			--THROW 50001, @Message, 1;
-			PRINT @Message;
-		END
+		--IF @Message != 'valid'
+		--BEGIN;
+		--	--THROW 50001, @Message, 1;
+		--	PRINT @Message;
+		--END
 	--END
+
 
 		INSERT INTO Clienti (Nume, Prenume, Email, Activ)
 		VALUES (@Nume, @Prenume, @Email, @Activ);
@@ -374,28 +371,79 @@ BEGIN
 		SET @Cod_Client = SCOPE_IDENTITY();
 
 
-		IF @NrTel IS NOT NULL
-		BEGIN;
-			DECLARE @NrTele VARCHAR(10);
-			DECLARE @Pos INT;
-			SET @Pos = CHARINDEX(',', @NrTel);
+		--IF @NrTel IS NOT NULL
+		--BEGIN;
+		--	DECLARE @NrTele VARCHAR(10);
+		--	DECLARE @Pos INT;
+		--	SET @Pos = CHARINDEX(',', @NrTel);
 
-			WHILE @Pos > 0 
-			BEGIN
-				SET @NrTele = LTRIM(RTRIM(LEFT(@NrTel, @Pos - 1)));
-				INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
-				SET @NrTel = LTRIM(RTRIM(RIGHT(@NrTel, LEN(@NrTel) - @Pos)));
-				SET @Pos = CHARINDEX(',', @NrTel);
-			END
-			INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, LTRIM(RTRIM(@NrTel)));
-		END
+		--	WHILE @Pos > 0 
+		--	BEGIN
+		--		SET @NrTele = LTRIM(RTRIM(LEFT(@NrTel, @Pos - 1)));
+		--		IF LEN(@NrTele) != 10  /*OR @NrTele LIKE '%[^0-9]%'*/
+		--		BEGIN
+		--			SET @Message = 'prea lung/scurt'
+		--			RETURN @Message
+		--			END
+		--		IF @NrTele NOT LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+		--		BEGIN;
+		--		SET @Message = 'prefixul nu este romanesc'
+					
+		--		RETURN @Message
+		--		END
+
+		--		INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
+		--		SET @NrTel = LTRIM(RTRIM(RIGHT(@NrTel, LEN(@NrTel) - @Pos)));
+		--		SET @Pos = CHARINDEX(',', @NrTel);
+		--	END
+		--	INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, LTRIM(RTRIM(@NrTel)));
+		--END
+
+		        IF @NrTel IS NOT NULL
+        BEGIN;
+            DECLARE @NrTele VARCHAR(10);
+            DECLARE @Pos INT;
+            
+            WHILE LEN(@NrTel) > 0
+            BEGIN
+                SET @Pos = CHARINDEX(',', @NrTel);
+                
+                IF @Pos = 0
+                    SET @NrTele = @NrTel
+                ELSE
+                    SET @NrTele = LEFT(@NrTel, @Pos - 1);
+                
+                SET @NrTele = LTRIM(RTRIM(@NrTele));
+                
+                IF LEN(@NrTele) != 10
+                BEGIN
+                    SET @Message = 'Număr de telefon prea lung/scurt: ' + @NrTele;
+                    THROW 50002, @Message, 1;
+                END
+                
+                IF @NrTele NOT LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+                BEGIN
+                    SET @Message = 'Prefixul nu este românesc: ' + @NrTele;
+                    THROW 50003, @Message, 1;
+                END
+                
+                INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
+                
+                IF @Pos = 0 
+                    SET @NrTel = ''
+                ELSE
+                    SET @NrTel = SUBSTRING(@NrTel, @Pos + 1, LEN(@NrTel));
+            END
+        END
 
 		COMMIT TRANSACTION;
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0
 		ROLLBACK TRANSACTION;
-		THROW 50001, @Message, 1;
-		--RETURN @Message;
+		--THROW 50001, @Message, 1;
+		--PRINT @Message;
+		THROW;
 	END CATCH;
 END
 GO
@@ -410,8 +458,8 @@ EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihai', @Email = 's.tan.mihai@gma
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Gigel', @Email = 'stan.mihaifftyg@gmail.com', @NrTel = '0712345578', @Activ= 1;
 EXEC InsertClient2 @Nume = 'Stan', @Prenume = 'Mihaiii', @Email = 'stan.mihaifhgf@gmail.com', @Activ= 1;
 EXEC InsertClient2 @Nume = 'Popescu', @Prenume = 'Ion', @NrTel = '0712345678', @Activ= 1;
-EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn', @Activ= 1;
-EXEC InsertClient2 @Nume = 'Popescghfgfho', @Prenume = 'Cristi', @NrTel = '0712345678,       0712345678', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Poghfggpescu', @Prenume = 'Iojhgjhgjhgn', @NrTel= '0345687859', @Activ= 1;
+EXEC InsertClient2 @Nume = 'Popescghfgfho', @Prenume = 'Cristi', @NrTel = '0712345678,0712345678', @Activ= 1;
 
 SELECT * FROM ClientContactInfo;
 SELECT * FROM Telefon;
@@ -432,8 +480,54 @@ BEGIN
            STRING_AGG(t.NrTel, ', ') AS NrTelefon
     FROM Clienti c
     JOIN Telefon t ON c.Cod_Client = t.Cod_Client
-    WHERE c.Activ = 1
+    --WHERE c.Activ = 1
     GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
+END
+GO
+
+GO
+CREATE OR ALTER PROCEDURE getClientiInternal
+    @Activ BIT = NULL
+AS
+BEGIN
+    SELECT c.Cod_Client,
+           c.Nume,
+           c.Prenume,
+           c.Email,
+           STRING_AGG(t.NrTel, ', ') AS NrTelefon
+    FROM Clienti c
+    JOIN Telefon t ON c.Cod_Client = t.Cod_Client
+    WHERE (@Activ IS NULL OR c.Activ = @Activ)
+    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
+END
+GO
+SELECT * FROM Clienti;
+SELECT * FROM ClientContactInfo;
+GO
+CREATE OR ALTER PROCEDURE getClientiActivi
+AS
+BEGIN
+    EXEC getClientiInternal @Activ = 1;
+END
+GO
+EXEC getClientiActivi;
+
+GO
+CREATE OR ALTER PROCEDURE getClientiInactivi
+AS
+BEGIN 
+	EXEC getClientiInternal @Activ = 0;
+	END
+GO
+
+
+GO
+CREATE OR ALTER PROCEDURE getMasini
+AS
+BEGIN
+	SELECT m.Cod_Masina, m.Cod_Client, m.NrInmatriculare, m.VIN, m.Model, m.AnFabr, m.TipMotorizare, m.CapacitateMotor, m.CP, m.KWh
+	FROM Masini m
+	GROUP BY Cod_Masina, Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh
 END
 GO
 
@@ -560,84 +654,83 @@ BEGIN
 	IF NOT EXISTS (SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client)
 	BEGIN
 		SET @Message = 'Proprietarul masinii nu se regaseste in baza de date.';
-		RETURN @Message;
+		--RETURN @Message;
 	END
 
     ELSE IF TRY_CONVERT(INT, @Cod_Client) IS NULL
     BEGIN
         SET @Message = 'Cod_Client trebuie sa fie de tip INT';
-        RETURN @Message;
+        --RETURN @Message;
     END
-
 	--AN FABR-----
-    ELSE IF @AnFabr IS NULL
+    IF @AnFabr IS NULL
     BEGIN
         SET @Message = 'Anul de fabricatie nu poate fi null';
-		RETURN @Message;
+		--RETURN @Message;
     END
 
     ELSE IF @AnFabr < 1900
     BEGIN
         SET @Message = 'Anul de fabricatie nu poate fi mai mic de 1900';
-		RETURN @Message;
+		--RETURN @Message;
     END
 
     ELSE IF @AnFabr >= YEAR(GETDATE()) + 1
     BEGIN
         SET @Message = 'Anul de fabricatie nu poate fi din viitor';
-		RETURN @Message;
+		--RETURN @Message;
 		END
 
 	---VIN CHECK
     ELSE IF LEN(@VIN) != 17
 	BEGIN
 		SET @Message = 'Seria sasiului e invalida';
-		RETURN @Message;
+		--RETURN @Message;
 	END
 
 	ELSE IF ISNUMERIC(@VIN) = 1
 	BEGIN
 		SET @Message = 'Seria sasiului nu poate sa fie alcatuita numai din cifre';
-		RETURN @Message;
+		--RETURN @Message;
 	END
 	ELSE IF @VIN LIKE '%[^a-zA-Z0-9]%'
 	BEGIN
 		SET @Message = 'Seria sasiului este compusa numai din litere si cifre'
-		RETURN @Message;
+		--RETURN @Message;
 		END
 
 	ELSE IF TRY_CAST(@VIN AS FLOAT) IS NOT NULL
     BEGIN
         SET @Message = 'VIN-ul trebuie sa fie un sir de caractere';
-        RETURN @Message;
+        --RETURN @Message;
     END
 
 	---TIP MOTORIZARE
 	ELSE IF @TipMotorizare NOT IN ('Benzina', 'Diesel', 'Electric', 'Hibrid')
     BEGIN
         SET @Message = 'Tipul de motorizare trebuie sa fie unul dintre: Benzina, Diesel, Electric, Hibrid';
-        RETURN @Message;
+        --RETURN @Message;
     END
 
 	-- CAPACITATE MOTOR
 	ELSE IF @CapacitateMotor IS NOT NULL AND (@CapacitateMotor < 0.8 OR @CapacitateMotor > 8.0)
     BEGIN
         SET @Message = 'Capacitatea motorului trebuie sa fie intre 0.8 si 8.0 litri';
-        RETURN @Message;
+        --RETURN @Message;
     END
 
 	-- CAI PUTERE
-	ELSE IF @CP < 0 OR @CP > 2000
+	IF @CP < 0 OR @CP > 2000
     BEGIN
         SET @Message = 'Puterea motorului trebuie sa fie intre 0 si 2000 CP';
-        RETURN @Message;
+       -- RETURN @Message;
 	END
 
 	-- BATERIE MASINI ELECTRICE/HIBRIDE
     ELSE IF (@TipMotorizare = 'Electric' OR @TipMotorizare = 'Hibrid') AND (@KWh IS NULL OR @KWh <= 0)
     BEGIN
         SET @Message = 'Capacitatea bateriei trebuie sa fie mai mare de 0';
-        RETURN @Message;
+        --RETURN @Message;
     END
 
     RETURN @Message;
@@ -645,7 +738,7 @@ END
 GO
 
 GO
-CREATE PROCEDURE adaugareMasina
+CREATE OR ALTER PROCEDURE adaugareMasina
 @Cod_Client INT,
 @NrInmatriculare VARCHAR(10),
 @VIN VARCHAR(17),
@@ -673,6 +766,7 @@ BEGIN;
 
 		IF @Message != 'valid'
 		BEGIN;
+			THROW 50001, @Message, 1;
 			PRINT @Message
 		END
         INSERT INTO Masini (
@@ -855,9 +949,10 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION;
-		DECLARE @ErrorMessage VARCHAR(MAX);
-		SET @ErrorMessage = ERROR_MESSAGE();
-		PRINT 'Eroare la introducerea programarii: ' + @ErrorMessage;
+		--DECLARE @ErrorMessage VARCHAR(MAX);
+		--SET @ErrorMessage = ERROR_MESSAGE();
+		THROW;
+		--PRINT 'Eroare la introducerea programarii: ' + @ErrorMessage;
 	END CATCH;
 END
 GO
@@ -948,11 +1043,11 @@ END
 GO
 
 SELECT * FROM Masini;
-EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '10/08/2024', @ModalitateContact = 'fizic', @Actiune = 'revizie', @IntervalOrar = '10:00', @DurataProgramare = 60;
+EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '9/08/2024', @ModalitateContact = 'telefon', @Actiune = 'revizie', @IntervalOrar = '12:00', @DurataProgramare = 60;
 EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '10:00', @DurataProgramare = 90;
-EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '07:30', @DurataProgramare = 30;
-EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '12/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '16:01', @DurataProgramare = 30;
-EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '16:30', @DurataProgramare = 60;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '08:30', @DurataProgramare = 30;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '12/08/2024', @ModalitateContact = 'fizic', @Actiune = 'reparatie', @IntervalOrar = '16:00', @DurataProgramare = 30;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '16:30', @DurataProgramare = 30;
 
 SELECT * FROM Programari;
 SELECT * FROM IstoricService;
