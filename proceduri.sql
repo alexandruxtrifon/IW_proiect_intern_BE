@@ -17,17 +17,43 @@ GO
 exec getProgramari
 
 GO
-CREATE OR ALTER PROCEDURE getClienti
+CREATE OR ALTER PROCEDURE getClientiInternal
+    @Activ BIT = NULL
 AS
 BEGIN
     SELECT c.Cod_Client,
            c.Nume,
            c.Prenume,
            c.Email,
-           STRING_AGG(t.NrTel, ', ') AS NrTelefon
+           STRING_AGG(t.NrTel, ', ') AS NrTelefon,
+		   c.Activ
     FROM Clienti c
     JOIN Telefon t ON c.Cod_Client = t.Cod_Client
-    --WHERE c.Activ = 1
-    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
+    WHERE (@Activ IS NULL OR c.Activ = @Activ)
+    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email, c.Activ;
 END
 GO
+
+GO
+CREATE OR ALTER PROCEDURE getClientiActivi
+AS
+BEGIN
+    EXEC getClientiInternal @Activ = 1;
+END
+GO
+
+GO
+CREATE OR ALTER PROCEDURE getClientiInactivi
+AS
+BEGIN
+	EXEC getClientiInternal @Activ = 0;
+END
+GO
+
+exec getclientiactivi
+exec getclientiinactivi
+
+GO
+CREATE OR ALTER PROCEDURE getMasiniByClientID
+AS
+BEGIN

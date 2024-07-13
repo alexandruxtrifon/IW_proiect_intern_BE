@@ -21,29 +21,3 @@ app.use('/api/istoric', routesIstoric);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT,console.log(
     `Server started on port ${PORT}`));
-
-
-
-
-
-
-
-app.get('/api/contact', async (req, res) => { 
-    try{
-        await sql.connect(config);
-        const result = await sql.query('SELECT * FROM ClientContactInfo');
-        res.status(200).json({
-            success: true,
-            data: result.recordset
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            success: false,
-            message: 'A aparut o eroare ',
-            error: err.message
-        });
-    }
-
-}) ;
-
