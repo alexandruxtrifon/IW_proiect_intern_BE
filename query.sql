@@ -1,8 +1,8 @@
 ﻿USE [internship2024]
 
 ALTER USER user_internship2024 WITH DEFAULT_SCHEMA = intern;
---DBCC USEROPTIONS;
-SET dateformat dmy;
+DBCC USEROPTIONS;
+SET DATEFORMAT dmy;
 --SET IMPLICIT_TRANSACTIONS OFF;
 BEGIN TRY
 	DROP TABLE IF EXISTS Telefon;
@@ -878,11 +878,12 @@ SELECT c.Nume, c.Prenume, m.* from Clienti c
 JOIN Masini m ON c.Cod_Client = m.Cod_Client;
 
 
-CREATE UNIQUE INDEX idx_programare_unica
-ON Programari (Cod_Masina, DataProgramare, IntervalOrar);
+--DROP INDEX Programari.idx_programare_unica;
+--CREATE UNIQUE INDEX idx_programare_unica
+--ON Programari (Cod_Masina, DataProgramare, IntervalOrar);
 
 GO
-CREATE PROCEDURE adaugaProgramare
+CREATE OR ALTER PROCEDURE adaugaProgramare
 @Cod_Masina INT,
 @DataProgramare DATETIME,
 @ModalitateContact VARCHAR(15),
@@ -1047,7 +1048,7 @@ EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '9/08/2024', @Modalitat
 EXEC adaugaProgramare @Cod_Masina = 1, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '10:00', @DurataProgramare = 90;
 EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '11/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '08:30', @DurataProgramare = 30;
 EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '12/08/2024', @ModalitateContact = 'fizic', @Actiune = 'reparatie', @IntervalOrar = '16:00', @DurataProgramare = 30;
-EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '16:30', @DurataProgramare = 30;
+EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '11:30', @DurataProgramare = 30;
 
 SELECT * FROM Programari;
 SELECT * FROM IstoricService;
