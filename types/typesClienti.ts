@@ -5,3 +5,9 @@ export type ClientRequestBody = {
     NrTel?: string[];
     Activ: boolean;
 }
+
+export type ClientPatchBody = {
+    Nume: string;
+    Prenume: string;
+    Email?: string;
+}

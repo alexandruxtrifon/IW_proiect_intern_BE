@@ -2,10 +2,15 @@ const { type } = require('express/lib/response');
 const {sql, poolPromise} = require('../config');
 import { Request, Response} from 'express';
 import { MasiniRequestBody } from '../types/typesMasini';
+import { validareMasina } from '../types/typesMasini';
 
 const adaugareMasina = async (req: Request, res: Response): Promise<void> => {
     const { Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh, Activ}: MasiniRequestBody = req.body;
-  
+    const validare = validareMasina(req.body);
+  if (!validare.isValid) {
+    res.status(400).json({ error: validare.message });
+    return;
+  }
     try {
         const pool = await poolPromise;
         const request = pool.request();
@@ -34,6 +39,12 @@ const adaugareMasina = async (req: Request, res: Response): Promise<void> => {
 };
 
 const actualizareMasina = async (req: Request, res: Response): Promise<void> => {
+  const validare = validareMasina(req.body, true);
+  if (!validare.isValid) {
+    res.status(400).json({ error: validare.message });
+    return;
+  }
+
   const {id} = req.params;
   const {Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh, Activ}: MasiniRequestBody = req.body;
   try {
@@ -101,9 +112,28 @@ const getMasini = async (req: Request, res: Response) => {
   }
 }
 
+const getMasiniClient = async (req: Request, res: Response) => {
+  const {id} = req.params;
+  try {
+    const pool = await poolPromise;
+    const request = pool.request();
+    request.input('Cod_Client', sql.Int, id);
+    const result = await request.execute('getMasiniClient');
+    res.status(200).send(result.recordset);
+  } catch (err) {
+    console.error(err);
+    if (err instanceof Error){
+        res.status(500).send({error: `A avut loc o eroare: ${err.message}`});
+        } else {
+          console.log(err);
+        }
+  }
+}
+
 module.exports = {
     adaugareMasina,
     actualizareMasina,
     dezactivareMasina,
-    getMasini
+    getMasini,
+    getMasiniClient
 };

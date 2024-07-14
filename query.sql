@@ -3,7 +3,7 @@
 ALTER USER user_internship2024 WITH DEFAULT_SCHEMA = intern;
 DBCC USEROPTIONS;
 SET DATEFORMAT dmy;
---SET IMPLICIT_TRANSACTIONS OFF;
+
 BEGIN TRY
 	DROP TABLE IF EXISTS Telefon;
 	DROP TABLE IF EXISTS IstoricService;
@@ -42,7 +42,9 @@ END CATCH;
 
 DROP FUNCTION IF EXISTS validareClient;
 GO
-CREATE FUNCTION validareClient(@Nume VARCHAR(MAX), @Prenume VARCHAR(MAX), @Email VARCHAR(MAX), @Activ BIT, @NrTel VARCHAR(MAX))
+
+
+CREATE OR ALTER FUNCTION validareClient(@Nume VARCHAR(MAX), @Prenume VARCHAR(MAX), @Email VARCHAR(MAX), @Activ BIT, @NrTel VARCHAR(MAX))
 RETURNS VARCHAR(MAX)
 AS
 BEGIN
@@ -57,7 +59,11 @@ BEGIN
 		RETURN @Error;
 	END
 
-
+	IF @Prenume LIKE '%[^a-zA-Z%]'
+	BEGIN
+		SET @Error = 'Prenumele poate fi alcatuit numai din litere'
+		RETURN @Error;
+	END
 
 	IF @Activ NOT IN (0, 1) OR @Activ IS NULL
 	BEGIN;
@@ -71,12 +77,17 @@ BEGIN
 		RETURN @Error;
 		END
 
-	--IF (@NrTel NOT LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND LEN(@NrTel) = 10)
-	--	BEGIN;
-	--	SET @Error = 'Numarul de telefon fgkjhgfkjhgf'
-	--	RETURN @Error;
-	--	END
-
+	IF LEN(@Nume) < 3
+	BEGIN;
+	SET @Error = 'Numele este prea scurt'
+	RETURN @Error;
+	END
+	
+	IF LEN(@Prenume) < 3
+	BEGIN;
+	SET @Error = 'Prenumele este prea scurt'
+	RETURN @Error;
+	END
 
 	IF @Email IS NOT NULL
 	BEGIN;
@@ -171,7 +182,7 @@ BEGIN
     END
 	END
 	---- TELEFOOON
-	    IF @NrTel IS NOT NULL
+	IF @NrTel IS NOT NULL
     BEGIN
         DECLARE @NrTelArray VARCHAR(MAX) = @NrTel;
         DECLARE @SingleNrTel VARCHAR(MAX);
@@ -184,7 +195,6 @@ BEGIN
             IF @SingleNrTel LIKE '%[^0-9]%' OR LEN(@SingleNrTel) != 10
             BEGIN
                 SET @Error = 'Numarul de telefon trebuie sa contina 10 cifresse';
-                --RETURN @Error;
             END
 			ELSE IF @SingleNrTel LIKE '%^0[^237][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9]%'
 			BEGIN
@@ -198,7 +208,6 @@ BEGIN
         IF LEN(@NrTelArray) != 10
         BEGIN
             SET @Error = 'Numarul de telefon trebuie sa contina 10 cifreeeej';
-            --RETURN @Error;
         END
 		ELSE IF @SingleNrTel LIKE '%^0[^237][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9][^0-9]%'
 			BEGIN
@@ -217,8 +226,7 @@ CREATE TABLE Telefon(
 Cod_Telefon INT PRIMARY KEY IDENTITY(1,1),
 Cod_Client INT,
 NrTel VARCHAR(10),
-FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
-CONSTRAINT CK_Telefon CHECK (NrTel LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND LEN(NrTel) = 10));
+FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE);
 END TRY
 BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
@@ -228,7 +236,6 @@ BEGIN TRY
 CREATE TABLE Masini(
 Cod_Masina INT PRIMARY KEY IDENTITY(1,1),
 Cod_Client INT,
---Cod_Marca INT,
 NrInmatriculare VARCHAR(15) NOT NULL,
 VIN VARCHAR(17) NOT NULL,
 Model VARCHAR(50),
@@ -240,11 +247,8 @@ KWP AS (CP * 0.745) PERSISTED,
 KWh DECIMAL(5,2),
 Activ BIT NOT NULL DEFAULT 1,
 FOREIGN KEY (Cod_Client) REFERENCES Clienti(Cod_Client) ON DELETE CASCADE,
---FOREIGN KEY (Cod_Marca) REFERENCES MarciAuto(Cod_Marca) ON DELETE CASCADE,
 CONSTRAINT CK_NrInmatriculare CHECK (NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][0-9][A-Z][A-Z][A-Z]'
 OR NrInmatriculare LIKE '[A-Z][A-Z][0-9][0-9][A-Z][A-Z][A-Z]'),
---CONSTRAINT CK_VIN CHECK (VIN NOT LIKE '%[^a-zA-Z0-9%]' AND LEN(VIN) = 17),
---CONSTRAINT CK_VIN CHECK (intern.validareVIN(VIN) = 1),
 CONSTRAINT CK_TipMotorizare CHECK (TipMotorizare IN ('benzina', 'diesel', 'electric', 'hibrid')),
 CONSTRAINT CK_KWh CHECK (
 (TipMotorizare IN ('benzina', 'diesel') AND KWh IS NULL) OR
@@ -347,23 +351,8 @@ BEGIN
 	IF (@Email IS NULL AND @NrTel IS NULL)
 		BEGIN;
 			SET @Message = 'Trebuie sa fie furnizat cel putin un email su un numar de telefon';
-			THROW 50007, @Message, 1;
-			--RETURN @Message;
+		THROW 50007, @Message, 1;
 		END
-
-
-		--IF @Email IS NOT NULL
-		--BEGIN
-		---DECLARE @Message VARCHAR(MAX)
-		--SET @Message = intern.validareClient(@Nume, @Prenume, @Email, @Activ, @NrTel)
-
-		--IF @Message != 'valid'
-		--BEGIN;
-		--	--THROW 50001, @Message, 1;
-		--	PRINT @Message;
-		--END
-	--END
-
 
 		INSERT INTO Clienti (Nume, Prenume, Email, Activ)
 		VALUES (@Nume, @Prenume, @Email, @Activ);
@@ -371,35 +360,7 @@ BEGIN
 		SET @Cod_Client = SCOPE_IDENTITY();
 
 
-		--IF @NrTel IS NOT NULL
-		--BEGIN;
-		--	DECLARE @NrTele VARCHAR(10);
-		--	DECLARE @Pos INT;
-		--	SET @Pos = CHARINDEX(',', @NrTel);
-
-		--	WHILE @Pos > 0 
-		--	BEGIN
-		--		SET @NrTele = LTRIM(RTRIM(LEFT(@NrTel, @Pos - 1)));
-		--		IF LEN(@NrTele) != 10  /*OR @NrTele LIKE '%[^0-9]%'*/
-		--		BEGIN
-		--			SET @Message = 'prea lung/scurt'
-		--			RETURN @Message
-		--			END
-		--		IF @NrTele NOT LIKE '0[237][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-		--		BEGIN;
-		--		SET @Message = 'prefixul nu este romanesc'
-					
-		--		RETURN @Message
-		--		END
-
-		--		INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
-		--		SET @NrTel = LTRIM(RTRIM(RIGHT(@NrTel, LEN(@NrTel) - @Pos)));
-		--		SET @Pos = CHARINDEX(',', @NrTel);
-		--	END
-		--	INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, LTRIM(RTRIM(@NrTel)));
-		--END
-
-		        IF @NrTel IS NOT NULL
+		IF @NrTel IS NOT NULL
         BEGIN;
             DECLARE @NrTele VARCHAR(10);
             DECLARE @Pos INT;
@@ -426,6 +387,12 @@ BEGIN
                     SET @Message = 'Prefixul nu este românesc: ' + @NrTele;
                     THROW 50003, @Message, 1;
                 END
+
+				IF EXISTS (SELECT 1 FROM Telefon WHERE NrTel = @NrTele)
+                BEGIN
+                    SET @Message = 'Numarul de telefon ' + @NrTele + ' se afla deja in baza de date';
+                    THROW 50004, @Message, 1;
+                END
                 
                 INSERT INTO Telefon (Cod_Client, NrTel) VALUES(@Cod_Client, @NrTele);
                 
@@ -441,8 +408,6 @@ BEGIN
 	BEGIN CATCH
 		IF @@TRANCOUNT > 0
 		ROLLBACK TRANSACTION;
-		--THROW 50001, @Message, 1;
-		--PRINT @Message;
 		THROW;
 	END CATCH;
 END
@@ -470,7 +435,7 @@ JOIN Telefon t ON c.Cod_Client = t.Cod_Client
 GROUP BY c.Cod_Client, Nume, Prenume, Email;
 
 GO
-CREATE PROCEDURE getClienti
+CREATE OR ALTER PROCEDURE getClienti
 AS
 BEGIN
     SELECT c.Cod_Client,
@@ -480,7 +445,6 @@ BEGIN
            STRING_AGG(t.NrTel, ', ') AS NrTelefon
     FROM Clienti c
     JOIN Telefon t ON c.Cod_Client = t.Cod_Client
-    --WHERE c.Activ = 1
     GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
 END
 GO
@@ -531,6 +495,17 @@ BEGIN
 END
 GO
 
+GO 
+CREATE OR ALTER PROCEDURE getMasiniClient(@Cod_Client INT)
+AS
+BEGIN
+	SELECT m.Cod_Masina, m.Cod_Client, m.NrInmatriculare, m.VIN, m.Model, m.AnFabr, m.TipMotorizare, m.CapacitateMotor, m.CP, m.KWh
+	FROM Masini m
+	WHERE @Cod_Client = m.Cod_Client
+	GROUP BY Cod_Masina, Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh
+END
+GO
+
 INSERT INTO Masini (Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh)
 VALUES
   (1, 'BU123ABC', '1HD1FAL11NY500561', 'Dacia Logan', 2020, 'benzina', 1.6, 100, NULL),
@@ -541,56 +516,98 @@ SELECT * FROM Masini;
 
 
 DROP PROCEDURE IF EXISTS UpdateClient;
+
 GO
-CREATE PROCEDURE UpdateClient
+CREATE OR ALTER PROCEDURE UpdateClient
 @Cod_Client INT,
 @Nume VARCHAR(30) = NULL,
 @Prenume VARCHAR(30) = NULL,
-@Email VARCHAR(50) = NULL,
-@NrTel VARCHAR(MAX) = NULL,
-@Activ BIT = 1
+@Email VARCHAR(50) = NULL
+
 AS
 BEGIN
     BEGIN TRANSACTION;
     BEGIN TRY
-        IF (@Email IS NULL AND @NrTel IS NULL)
-        BEGIN;
-			DECLARE @CurrentEmail VARCHAR(50);
-			DECLARE @CurrentNrTel VARCHAR(10);
-			SELECT @CurrentEmail = Email FROM Clienti WHERE Cod_Client = @Cod_Client;
-			SELECT TOP 1 @CurrentNrTel = NrTel FROM Telefon WHERE Cod_Client = @Cod_Client;
-			IF(@CurrentEmail IS NULL AND @CurrentNrTel IS NULL)
-			BEGIN;
-            THROW 50001, 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon', 1;
+		DECLARE @Message VARCHAR(MAX)
+		
 
-			END
+        SET @Message = intern.validareClientUpdate(@Nume, @Prenume, @Email);
+
+            IF @Message != 'valid'
+            BEGIN;
+                THROW 50001, @Message, 1;
+            END
+
+        UPDATE Clienti
+		SET
+            Nume = COALESCE(@Nume, Nume),
+            Prenume = COALESCE(@Prenume, Prenume),
+            Email = COALESCE(@Email, Email)
+        WHERE Cod_Client = @Cod_Client;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
+
+SELECT * FROM ClientContactInfo WHERE Cod_Client = 1;
+EXEC UpdateClient @Cod_Client = 1, @Email = 'abc@vjj.cfk';
+
+GO
+CREATE OR ALTER PROCEDURE dezactivareClient
+	@Cod_Client INT
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    BEGIN TRY
+
+		IF EXISTS(SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client AND Activ = 0)
+		BEGIN;
+			THROW 50001, 'Clientul este deja inactiv', 1;
+		END
+
+		IF NOT EXISTS (SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client)
+        BEGIN;
+            THROW 50002, 'Clientul nu exista in baza de date', 1;
         END
 
         UPDATE Clienti
-        SET Nume = COALESCE(@Nume, Nume),
-            Prenume = COALESCE(@Prenume, Prenume),
-            Email = COALESCE(@Email, Email),
-            Activ = COALESCE(@Activ, Activ)
+        SET Activ = 0
         WHERE Cod_Client = @Cod_Client;
 
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END
+GO
 
-        IF @NrTel IS NOT NULL
-        BEGIN
-			DELETE FROM Telefon WHERE Cod_Client = @Cod_Client;
+CREATE OR ALTER PROCEDURE activareClient
+	@Cod_Client INT
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    BEGIN TRY
 
-            DECLARE @NrTele VARCHAR(10);
-            DECLARE @Pos INT;
-            SET @Pos = CHARINDEX(',', @NrTel);
+		IF EXISTS(SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client AND Activ = 0)
+		BEGIN;
+			THROW 50001, 'Clientul este deja inactiv', 1;
+		END
 
-            WHILE @Pos > 0 
-            BEGIN
-                SET @NrTele = LTRIM(RTRIM(LEFT(@NrTel, @Pos - 1)));
-                INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, @NrTele);
-                SET @NrTel = LTRIM(RTRIM(RIGHT(@NrTel, LEN(@NrTel) - @Pos)));
-                SET @Pos = CHARINDEX(',', @NrTel);
-            END
-            INSERT INTO Telefon (Cod_Client, NrTel) VALUES (@Cod_Client, LTRIM(RTRIM(@NrTel)));
+		IF NOT EXISTS (SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client)
+        BEGIN;
+            THROW 50002, 'Clientul nu exista in baza de date', 1;
         END
+
+        UPDATE Clienti
+        SET Activ = 0
+        WHERE Cod_Client = @Cod_Client;
 
         COMMIT TRANSACTION;
     END TRY
@@ -602,14 +619,26 @@ END
 GO
 
 GO
-CREATE PROCEDURE dezactivareClient
+CREATE OR ALTER PROCEDURE activareClient
 	@Cod_Client INT
 AS
 BEGIN
-    BEGIN TRANSACTION;
-    BEGIN TRY
+	BEGIN TRANSACTION;
+	BEGIN TRY
+	
+		IF EXISTS(SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client AND Activ = 1)
+		BEGIN;
+			THROW 50001, 'Clientul este deja activ', 1;
+		END
+
+		IF NOT EXISTS (SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client)
+        BEGIN;
+            THROW 50002, 'Clientul nu exista in baza de date', 1;
+        END
+
+	
         UPDATE Clienti
-        SET Activ = 0
+        SET Activ = 1
         WHERE Cod_Client = @Cod_Client;
 
         COMMIT TRANSACTION;
@@ -629,14 +658,11 @@ SET NrTel = '0728973720'
 WHERE Cod_Client = 1;
 
 
-
-EXEC UpdateClient @Cod_Client = 1, @NrTel = '0771456266,0712345688,0711147678';
-
-
-
 DROP FUNCTION IF EXISTS validareMasina
+
+
 GO
-CREATE FUNCTION validareMasina( @Cod_Client VARCHAR(MAX),
+CREATE OR ALTER FUNCTION validareMasina( @Cod_Client VARCHAR(MAX),
     @NrInmatriculare VARCHAR(MAX),
     @VIN VARCHAR(MAX),
     @Model VARCHAR(30),
@@ -644,12 +670,18 @@ CREATE FUNCTION validareMasina( @Cod_Client VARCHAR(MAX),
     @TipMotorizare VARCHAR(10),
     @CapacitateMotor DECIMAL(4,1),
     @CP INT,
-    @KWh DECIMAL(5,2))
+    @KWh DECIMAL(5,2),
+	@Activ BIT)
 RETURNS VARCHAR(MAX)
 AS
 BEGIN
 	DECLARE @Message VARCHAR(MAX) = 'valid';
     
+	IF @Activ NOT IN (0, 1) OR @Activ IS NULL
+	BEGIN;
+		SET @Message = 'Trebuie specificat daca masina este Activa(1) sau Inactiva(0)';
+	END
+
 	------ CLIENT-----
 	IF NOT EXISTS (SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client)
 	BEGIN
@@ -677,7 +709,7 @@ BEGIN
 
     ELSE IF @AnFabr >= YEAR(GETDATE()) + 1
     BEGIN
-        SET @Message = 'Anul de fabricatie nu poate fi din viitor';
+        SET @Message = 'Anul fabricatiei nu poate fi in viitor';
 		--RETURN @Message;
 		END
 
@@ -713,9 +745,9 @@ BEGIN
     END
 
 	-- CAPACITATE MOTOR
-	ELSE IF @CapacitateMotor IS NOT NULL AND (@CapacitateMotor < 0.8 OR @CapacitateMotor > 8.0)
+	ELSE IF @CapacitateMotor IS NOT NULL AND (@CapacitateMotor < 0.5 OR @CapacitateMotor > 8.0)
     BEGIN
-        SET @Message = 'Capacitatea motorului trebuie sa fie intre 0.8 si 8.0 litri';
+        SET @Message = 'Capacitatea motorului trebuie sa fie intre 0.5 si 8.0 litri';
         --RETURN @Message;
     END
 
@@ -730,7 +762,6 @@ BEGIN
     ELSE IF (@TipMotorizare = 'Electric' OR @TipMotorizare = 'Hibrid') AND (@KWh IS NULL OR @KWh <= 0)
     BEGIN
         SET @Message = 'Capacitatea bateriei trebuie sa fie mai mare de 0';
-        --RETURN @Message;
     END
 
     RETURN @Message;
@@ -748,7 +779,7 @@ CREATE OR ALTER PROCEDURE adaugareMasina
 @CapacitateMotor DECIMAL(4,1) = NULL,
 @CP INT,
 @KWh DECIMAL(5,2) = NULL,
-@Activ BIT = 1
+@Activ BIT
 AS
 BEGIN;
     BEGIN TRANSACTION;
@@ -762,7 +793,7 @@ BEGIN;
     @TipMotorizare ,
     @CapacitateMotor ,
     @CP,
-    @KWh)
+    @KWh, @Activ)
 
 		IF @Message != 'valid'
 		BEGIN;
@@ -782,7 +813,6 @@ BEGIN;
     END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
-		--PRINT 'Eroare la introducerea masinii: ' + @Message;
 		THROW 50001, @Message, 1;
     END CATCH;
 END
@@ -878,10 +908,6 @@ SELECT c.Nume, c.Prenume, m.* from Clienti c
 JOIN Masini m ON c.Cod_Client = m.Cod_Client;
 
 
---DROP INDEX Programari.idx_programare_unica;
---CREATE UNIQUE INDEX idx_programare_unica
---ON Programari (Cod_Masina, DataProgramare, IntervalOrar);
-
 GO
 CREATE OR ALTER PROCEDURE adaugaProgramare
 @Cod_Masina INT,
@@ -950,44 +976,12 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION;
-		--DECLARE @ErrorMessage VARCHAR(MAX);
-		--SET @ErrorMessage = ERROR_MESSAGE();
 		THROW;
-		--PRINT 'Eroare la introducerea programarii: ' + @ErrorMessage;
 	END CATCH;
 END
 GO
 
---nu mai este actuala
-GO
-CREATE PROCEDURE updateIstoricServiceStatus
-@Cod_Istoric INT,
-@NewStatus TINYINT,
-@DataPrimire DATE = NULL,
-@ProblemeMentionate VARCHAR(499) = NULL,
-@ProblemeVizualeConstatate VARCHAR(499) = NULL,
-@OperatiuniEfectuate VARCHAR(499) = NULL,
-@PieseSchimbate VARCHAR(499) = NULL,
-@PieseReparate VARCHAR(499) = NULL,
-@AlteProblemeDescoperite VARCHAR(499) = NULL,
-@AlteReparatii VARCHAR(499) = NULL,
-@DurataReparatie INT = NULL
-AS
-BEGIN
-	UPDATE IstoricService
-	SET Status = @NewStatus,
-		DataPrimire = CASE WHEN @NewStatus >= 1 THEN COALESCE(@DataPrimire, DataPrimire) ELSE DataPrimire END,
-		ProblemeMentionate = CASE WHEN @NewStatus >= 2 THEN COALESCE(@ProblemeMentionate, ProblemeMentionate) ELSE ProblemeMentionate END,
-        ProblemeVizualeConstatate = CASE WHEN @NewStatus >= 2 THEN COALESCE(@ProblemeVizualeConstatate, ProblemeVizualeConstatate) ELSE ProblemeVizualeConstatate END,
-        OperatiuniEfectuate = CASE WHEN @NewStatus = 3 THEN COALESCE(@OperatiuniEfectuate, OperatiuniEfectuate) ELSE OperatiuniEfectuate END,
-        PieseSchimbate = CASE WHEN @NewStatus = 3 THEN COALESCE(@PieseSchimbate, PieseSchimbate) ELSE PieseSchimbate END,
-        PieseReparate = CASE WHEN @NewStatus = 3 THEN COALESCE(@PieseReparate, PieseReparate) ELSE PieseReparate END,
-        AlteProblemeDescoperite = CASE WHEN @NewStatus = 3 THEN COALESCE(@AlteProblemeDescoperite, AlteProblemeDescoperite) ELSE AlteProblemeDescoperite END,
-        AlteReparatii = CASE WHEN @NewStatus = 3 THEN COALESCE(@AlteReparatii, AlteReparatii) ELSE AlteReparatii END,
-        DurataReparatie = CASE WHEN @NewStatus = 3 THEN COALESCE(@DurataReparatie, DurataReparatie) ELSE DurataReparatie END
-    WHERE Cod_Istoric = @Cod_Istoric;
-END
-GO
+
 
 GO
 CREATE OR ALTER PROCEDURE updateIstoricServiceStatus2

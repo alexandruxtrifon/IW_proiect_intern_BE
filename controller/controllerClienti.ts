@@ -1,7 +1,7 @@
 const { type } = require('express/lib/response');
 const {sql, poolPromise} = require('../config');
 import { Request, Response} from 'express';
-import { ClientRequestBody } from '../types/typesClienti';
+import { ClientPatchBody, ClientRequestBody } from '../types/typesClienti';
 
 export const adaugareClient = async (req: Request, res: Response): Promise<void> => {
     const {Nume, Prenume, Email, NrTel, Activ}:ClientRequestBody = req.body;
@@ -60,15 +60,15 @@ export const adaugareClient = async (req: Request, res: Response): Promise<void>
         if (err instanceof Error){
         res.status(500).send({error: `${err.message}`});
         } else {
-            console.log('Eroare', err);
+            console.log('eroare:', err);
         }
     }
 };
 
 const actualizareClient = async (req: Request, res: Response): Promise<void> => {
     const {id} = req.params;
-    const {Nume, Prenume, Email, NrTel, Activ} = req.body;
-    const telefoane = NrTel ? NrTel.join(',') : null;
+    const {Nume, Prenume, Email/*, NrTel, Activ*/}:ClientPatchBody = req.body;
+    //const telefoane = NrTel ? NrTel.join(',') : null;
 
     try {
         const pool = await poolPromise;
@@ -78,8 +78,8 @@ const actualizareClient = async (req: Request, res: Response): Promise<void> => 
         request.input('Nume', sql.VarChar(30), Nume || null);
         request.input('Prenume', sql.VarChar(30), Prenume || null);
         request.input('Email', sql.VarChar(50), Email || null);
-        request.input('NrTel', sql.VarChar(sql.MAX), telefoane);
-        request.input('Activ', sql.Bit, Activ || null);
+        //request.input('NrTel', sql.VarChar(sql.MAX), telefoane);
+        //request.input('Activ', sql.Bit, Activ || null);
         await request.execute('UpdateClient');
         res.status(200).json({ message: 'Clientul a fost actualizat cu succes' });
     } catch (err) {
@@ -92,24 +92,32 @@ const actualizareClient = async (req: Request, res: Response): Promise<void> => 
     }
 };
 
-const dezactivareClient = async (req: Request, res: Response): Promise<void> => {
+const execStatusClient = async (req: Request, res: Response, procedureName: string, mesaj: string): Promise<void> => {
     const {id} = req.params;
-
     try {
         const pool = await poolPromise;
         const request = pool.request();
         request.input('Cod_Client', sql.Int, id);
-        await request.execute('dezactivareClient');
-        res.status(200).json({ message: 'Clientul a fost dezactivat' });
-  } catch (err) {
-    console.error(err);
-    if (err instanceof Error){
+        const result = await request.execute(procedureName);
+        res.status(200).json({ message: mesaj });
+
+    } catch (err) {
+        console.error(err);
+        if (err instanceof Error){
         res.status(500).send(`A avut loc o eroare: ${err.message}`);
         } else {
           console.log(err);
         }
-    }
+    } 
 };
+
+const dezactivareClient = async (req: Request, res: Response): Promise<void> => {
+    await execStatusClient(req, res, 'dezactivareClient', 'Clientul a fost dezactivat');
+};
+const activareClient = async (req: Request, res: Response): Promise<void> => {
+    await execStatusClient(req, res, 'activareClient', 'Clientul a fost activat');
+};
+
 
 const execGetClienti = async (req: Request, res: Response, procedureName: string) => {
     try {
@@ -127,18 +135,70 @@ const execGetClienti = async (req: Request, res: Response, procedureName: string
     }
 };
 
-const getClienti = async (req: Request, res: Response) => {
-        execGetClienti(req, res, 'getClientiInternal');
+const execGetTelefoane = async (req: Request, res: Response, procedureName: string): Promise<void> => {
+    const {id} = req.params;
+
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('Cod_Client', sql.Int, id);
+        const result = await request.execute(procedureName);
+        res.status(200).send(result.recordset);
+    } catch (err) {
+        console.error(err);
+        if (err instanceof Error){
+        res.status(500).send(`A avut loc o eroare: ${err.message}`);
+        } else {
+          console.log(err);
+        }
+    } 
+};
+
+const execActualizareTelefonClient = async (req: Request, res: Response, procedureName: string): Promise<void> => {
+    const {idClient, idTelefon} = req.params;
+    const {NrTel} = req.body;
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('Cod_Client', sql.Int, idClient);
+        request.input('Cod_Telefon', sql.Int, idTelefon);
+        request.input('NrTel', sql.VarChar(50), NrTel);
+
+        const result = await request.execute(procedureName);
+        //res.status(200).send(result.recordset);
+        res.status(200).json({ message: 'Telefonul a fost actualizat' });
+
+    } catch (err) {
+        console.error(err);
+        if (err instanceof Error){
+        res.status(500).send(`A avut loc o eroare: ${err.message}`);
+        } else {
+          console.log(err);
+        }
+    } 
+};
+
+const getClienti = async (req: Request, res: Response): Promise<void> => {
+        await execGetClienti(req, res, 'getClientiInternal');
     }
 
 
-const getClientiActivi = async (req: Request, res: Response) => {
-    execGetClienti(req, res, 'getClientiActivi');
+const getClientiActivi = async (req: Request, res: Response): Promise<void> => {
+    await execGetClienti(req, res, 'getClientiActivi');
     }
 
-const getClientiInactivi = async (req: Request, res: Response) => {
-    execGetClienti(req, res, 'getClientiInactivi');
+const getClientiInactivi = async (req: Request, res: Response): Promise<void> => {
+    await execGetClienti(req, res, 'getClientiInactivi');
     }
+
+const getTelefonClient = async (req: Request, res: Response): Promise<void> => {
+    //const {id} = req.params;
+    await execGetTelefoane(req, res, 'getTelefoaneClient');
+}
+
+const actualizareTelefonClient = async (req: Request, res: Response): Promise<void> => {
+    await execActualizareTelefonClient(req, res, 'actualizareTelefonClient');
+}
 
 
 module.exports = {
@@ -147,5 +207,8 @@ module.exports = {
     dezactivareClient,
     getClienti,
     getClientiActivi,
-    getClientiInactivi
+    getClientiInactivi,
+    getTelefonClient,
+    actualizareTelefonClient,
+    activareClient
 };
