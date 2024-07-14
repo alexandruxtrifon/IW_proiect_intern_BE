@@ -39,20 +39,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.adaugareClient = void 0;
 var type = require('express/lib/response').type;
 var _a = require('../config'), sql = _a.sql, poolPromise = _a.poolPromise;
+var typesClienti_1 = require("../types/typesClienti");
 var adaugareClient = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, Nume, Prenume, Email, NrTel, Activ, telefoane, pool, request, err_1;
+    var _a, Nume, Prenume, Email, NrTel, Activ, validare, telefoane, pool, request, err_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
                 _a = req.body, Nume = _a.Nume, Prenume = _a.Prenume, Email = _a.Email, NrTel = _a.NrTel, Activ = _a.Activ;
-                //console.log(typeof Email)
-                //console.log(typeof NrTel)
-                if (!Nume || !Prenume || !Activ === undefined) {
-                    res.status(400).json({ error: 'Numele, prenumele, si statusul sunt obligatorii' });
-                    return [2 /*return*/];
-                }
-                if (typeof Activ !== 'boolean' && Activ !== 1 && Activ !== 0) {
-                    res.status(400).json({ error: 'Statusul trebuie sa fie  0/1.' });
+                validare = (0, typesClienti_1.validareClient)(req.body);
+                if (!validare.isValid) {
+                    res.status(400).json({ error: validare.message });
                     return [2 /*return*/];
                 }
                 if (!Email && (!Array.isArray(NrTel) || NrTel.length === 0)) {
@@ -213,7 +209,7 @@ var execGetClienti = function (req, res, procedureName) { return __awaiter(void 
                 err_4 = _a.sent();
                 console.error(err_4);
                 if (err_4 instanceof Error) {
-                    res.status(500).send("A avut loc o eroare: ".concat(err_4.message));
+                    res.status(500).send("A avut loc o eroare la executarea procedurii ".concat(procedureName, ": ").concat(err_4.message));
                 }
                 else {
                     console.log(err_4);

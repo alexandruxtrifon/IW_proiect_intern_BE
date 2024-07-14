@@ -1,21 +1,19 @@
 const { type } = require('express/lib/response');
 const {sql, poolPromise} = require('../config');
 import { Request, Response} from 'express';
-import { ClientPatchBody, ClientRequestBody } from '../types/typesClienti';
+import { ClientPatchBody, ClientRequestBody, validareClient } from '../types/typesClienti';
 
 export const adaugareClient = async (req: Request, res: Response): Promise<void> => {
     const {Nume, Prenume, Email, NrTel, Activ}:ClientRequestBody = req.body;
-    //console.log(typeof Email)
-    //console.log(typeof NrTel)
 
-    if (!Nume || !Prenume || !Activ === undefined) {
-        res.status(400).json({ error: 'Numele, prenumele, si statusul sunt obligatorii' });
+    const validare = validareClient(req.body);
+    if (!validare.isValid) {
+        res.status(400).json({ error: validare.message });
         return;
     }
-    if (typeof Activ !== 'boolean' && Activ !== 1 && Activ !== 0) {
-        res.status(400).json({ error: 'Statusul trebuie sa fie  0/1.' });
-        return;
-    }
+
+
+
     if (!Email && (!Array.isArray(NrTel) || NrTel.length === 0)) {
         res.status(400).json({ error: 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon.' });
         return;
@@ -29,16 +27,7 @@ export const adaugareClient = async (req: Request, res: Response): Promise<void>
         res.status(400).json({ error: 'Trebuie sa fie furnizat cel putin un email sau un numar de telefon' });
         return;
     }
-    /*if(typeof NrTel == 'string' && Email === undefined){
-    if (!Array.isArray(NrTel) || NrTel.some((nr: any) => typeof nr !== 'string')) {
-        res.status(400).json({ error: 'NrTel trebuie sa fie un array de string-uri.' });
-        return;
-    }}*/
-    //if (typeof Activ !== 0 && Activ !== 1) {
-    /*if (typeof Activ !== 'number'){
-        res.status(400).send('Statusul activ trebuie sa fie un numar' );
-        return;
-    }*/
+
 
 
     //const telefoane = NrTel.join(',');
@@ -128,7 +117,7 @@ const execGetClienti = async (req: Request, res: Response, procedureName: string
     } catch (err) {
         console.error(err);
         if (err instanceof Error){
-        res.status(500).send(`A avut loc o eroare: ${err.message}`);
+            res.status(500).send(`A avut loc o eroare la executarea procedurii ${procedureName}: ${err.message}`);
         } else {
           console.log(err);
         }

@@ -2,6 +2,7 @@ USE internship2024
 
 GO
 CREATE OR ALTER PROCEDURE getProgramari
+@DataProgramare DATE = NULL
 AS
 BEGIN
 
@@ -11,12 +12,57 @@ BEGIN
         Programari p
     JOIN 
         Masini m ON p.Cod_Masina = m.Cod_Masina
+	WHERE (@DataProgramare IS NULL OR CONVERT(DATE, DataProgramare) = @DataProgramare)
+	ORDER BY
+	DataProgramare, IntervalOrar;
 END
 GO
 
-exec getProgramari
+exec getProgramari @DataProgramare = '08/13/2024'
+
+EXEC getIstoricMasina @Cod_Masina = 2
 
 GO
+CREATE OR ALTER PROCEDURE getIstoricMasina
+    @Cod_Masina INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @Cod_Masina IS NULL
+    BEGIN;
+        THROW 50001,'Codul masinii nu poate fi null.', 1;
+        RETURN;
+    END
+
+    BEGIN TRY
+        SELECT 
+            Cod_Istoric,
+            Cod_Programare,
+            Status,
+            FORMAT(DataPrimire, 'dd/MM/yyyy') AS DataPrimire,
+            ProblemeMentionate,
+            ProblemeVizualeConstatate,
+            OperatiuniEfectuate,
+            PieseSchimbate,
+            PieseReparate,
+            AlteProblemeDescoperite,
+            AlteReparatii,
+            DurataReparatie
+        FROM 
+            IstoricService
+        WHERE 
+            Cod_Masina = @Cod_Masina
+        ORDER BY 
+            DataPrimire DESC
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH;
+END
+GO
+
+
 CREATE OR ALTER PROCEDURE getClientiInternal
     @Activ BIT = NULL
 AS

@@ -38,30 +38,32 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var _a = require('../config'), sql = _a.sql, poolPromise = _a.poolPromise;
 var actualizareIstoric2 = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var id, _a, DataPrimire, ProblemeMentionate, ProblemeVizualeConstatate, pool, request, err_1;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
+    var id, _a, DataPrimire, ProblemeMentionate, ProblemeVizualeConstatate, isoDataPrimire, _b, day, month, year, pool, request, err_1;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
             case 0:
                 id = req.params.id;
                 _a = req.body, DataPrimire = _a.DataPrimire, ProblemeMentionate = _a.ProblemeMentionate, ProblemeVizualeConstatate = _a.ProblemeVizualeConstatate;
-                _b.label = 1;
+                _b = DataPrimire.split(/[-/.]/), day = _b[0], month = _b[1], year = _b[2];
+                isoDataPrimire = new Date("".concat(month, "/").concat(day, "/").concat(year));
+                _c.label = 1;
             case 1:
-                _b.trys.push([1, 4, , 5]);
+                _c.trys.push([1, 4, , 5]);
                 return [4 /*yield*/, poolPromise];
             case 2:
-                pool = _b.sent();
+                pool = _c.sent();
                 request = pool.request();
                 request.input('Cod_Istoric', sql.Int, id);
-                request.input('DataPrimire', sql.DateTime, DataPrimire);
+                request.input('DataPrimire', sql.DateTime, isoDataPrimire);
                 request.input('ProblemeMentionate', sql.VarChar(499), ProblemeMentionate);
                 request.input('ProblemeVizualeConstatate', sql.VarChar(499), ProblemeVizualeConstatate);
                 return [4 /*yield*/, request.execute('updateIstoricServiceStatus2')];
             case 3:
-                _b.sent();
+                _c.sent();
                 res.status(200).send('Istoricul a fost actualizat.');
                 return [3 /*break*/, 5];
             case 4:
-                err_1 = _b.sent();
+                err_1 = _c.sent();
                 console.error(err_1);
                 if (err_1 instanceof Error) {
                     res.status(500).send({ error: "eroare la actualizarea istoricului: ".concat(err_1.message) });
@@ -75,11 +77,11 @@ var actualizareIstoric2 = function (req, res) { return __awaiter(void 0, void 0,
     });
 }); };
 var actualizareIstoric3 = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var Cod_Istoric, _a, OperatiuniEfectuate, PieseSchimbate, PieseReparate, AlteProblemeDescoperite, AlteReparatii, DurataReparatie, pool, request, err_2;
+    var id, _a, OperatiuniEfectuate, PieseSchimbate, PieseReparate, AlteProblemeDescoperite, AlteReparatii, DurataReparatie, pool, request, err_2;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                Cod_Istoric = req.params.Cod_Istoric;
+                id = req.params.id;
                 _a = req.body, OperatiuniEfectuate = _a.OperatiuniEfectuate, PieseSchimbate = _a.PieseSchimbate, PieseReparate = _a.PieseReparate, AlteProblemeDescoperite = _a.AlteProblemeDescoperite, AlteReparatii = _a.AlteReparatii, DurataReparatie = _a.DurataReparatie;
                 _b.label = 1;
             case 1:
@@ -88,7 +90,7 @@ var actualizareIstoric3 = function (req, res) { return __awaiter(void 0, void 0,
             case 2:
                 pool = _b.sent();
                 request = pool.request();
-                request.input('Cod_Istoric', sql.Int, Cod_Istoric);
+                request.input('Cod_Istoric', sql.Int, id);
                 request.input('OperatiuniEfectuate', sql.VarChar(499), OperatiuniEfectuate);
                 request.input('PieseSchimbate', sql.VarChar(499), PieseSchimbate);
                 request.input('PieseReparate', sql.VarChar(499), PieseReparate);
@@ -113,8 +115,42 @@ var actualizareIstoric3 = function (req, res) { return __awaiter(void 0, void 0,
         }
     });
 }); };
+var getIstoricMasina = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var id, pool, request, result, err_3;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                id = req.params.id;
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, poolPromise];
+            case 2:
+                pool = _a.sent();
+                request = pool.request();
+                request.input('Cod_Masina', sql.Int, id);
+                return [4 /*yield*/, request.execute('getIstoricMasina')];
+            case 3:
+                result = _a.sent();
+                res.status(200).send(result.recordset);
+                return [3 /*break*/, 5];
+            case 4:
+                err_3 = _a.sent();
+                console.error(err_3);
+                if (err_3 instanceof Error) {
+                    res.status(500).send({ error: "A avut loc o eroare: ".concat(err_3.message) });
+                }
+                else {
+                    console.log(err_3);
+                }
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); };
 module.exports = {
     actualizareIstoric2: actualizareIstoric2,
-    actualizareIstoric3: actualizareIstoric3
+    actualizareIstoric3: actualizareIstoric3,
+    getIstoricMasina: getIstoricMasina
 };
 //# sourceMappingURL=controllerIstoric.js.map

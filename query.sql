@@ -442,10 +442,11 @@ BEGIN
            c.Nume,
            c.Prenume,
            c.Email,
-           STRING_AGG(t.NrTel, ', ') AS NrTelefon
+           STRING_AGG(t.NrTel, ', ') AS NrTelefon,
+		   c.Activ
     FROM Clienti c
     JOIN Telefon t ON c.Cod_Client = t.Cod_Client
-    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
+    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email, c.Activ;
 END
 GO
 
@@ -458,13 +459,15 @@ BEGIN
            c.Nume,
            c.Prenume,
            c.Email,
-           STRING_AGG(t.NrTel, ', ') AS NrTelefon
+           STRING_AGG(t.NrTel, ', ') AS NrTelefon,
+		   c.Activ
     FROM Clienti c
     JOIN Telefon t ON c.Cod_Client = t.Cod_Client
     WHERE (@Activ IS NULL OR c.Activ = @Activ)
-    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email;
+    GROUP BY c.Cod_Client, c.Nume, c.Prenume, c.Email, c.Activ;
 END
 GO
+
 SELECT * FROM Clienti;
 SELECT * FROM ClientContactInfo;
 GO
@@ -489,9 +492,9 @@ GO
 CREATE OR ALTER PROCEDURE getMasini
 AS
 BEGIN
-	SELECT m.Cod_Masina, m.Cod_Client, m.NrInmatriculare, m.VIN, m.Model, m.AnFabr, m.TipMotorizare, m.CapacitateMotor, m.CP, m.KWh
+	SELECT m.Cod_Masina, m.Cod_Client, m.NrInmatriculare, m.VIN, m.Model, m.AnFabr, m.TipMotorizare, m.CapacitateMotor, m.CP, m.KWh, m.Activ
 	FROM Masini m
-	GROUP BY Cod_Masina, Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh
+	GROUP BY Cod_Masina, Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh, Activ
 END
 GO
 
@@ -499,10 +502,10 @@ GO
 CREATE OR ALTER PROCEDURE getMasiniClient(@Cod_Client INT)
 AS
 BEGIN
-	SELECT m.Cod_Masina, m.Cod_Client, m.NrInmatriculare, m.VIN, m.Model, m.AnFabr, m.TipMotorizare, m.CapacitateMotor, m.CP, m.KWh
+	SELECT m.Cod_Masina, m.Cod_Client, m.NrInmatriculare, m.VIN, m.Model, m.AnFabr, m.TipMotorizare, m.CapacitateMotor, m.CP, m.KWh, m.Activ
 	FROM Masini m
 	WHERE @Cod_Client = m.Cod_Client
-	GROUP BY Cod_Masina, Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh
+	GROUP BY Cod_Masina, Cod_Client, NrInmatriculare, VIN, Model, AnFabr, TipMotorizare, CapacitateMotor, CP, KWh, Activ
 END
 GO
 
@@ -682,11 +685,29 @@ BEGIN
 		SET @Message = 'Trebuie specificat daca masina este Activa(1) sau Inactiva(0)';
 	END
 
+	IF EXISTS (SELECT 1 FROM Masini WHERE NrInmatriculare = @NrInmatriculare)
+    BEGIN
+        SET @Message = 'Numarul de inmatriculare este deja inregistrat in sistem';
+        RETURN @Message;
+    END
+
+	IF EXISTS (SELECT 1 FROM Masini WHERE VIN = @VIN)
+    BEGIN
+        SET @Message = 'Seria de sasiu este deja inregistrata in sistem';
+        RETURN @Message;
+    END
+
+
 	------ CLIENT-----
 	IF NOT EXISTS (SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client)
 	BEGIN
 		SET @Message = 'Proprietarul masinii nu se regaseste in baza de date.';
 		--RETURN @Message;
+	END
+
+	IF EXISTS(SELECT 1 FROM Clienti WHERE Cod_Client = @Cod_Client AND Activ = 0)
+	BEGIN;
+		SET @Message = 'Nu se poate atribui masina unui client inactiv'
 	END
 
     ELSE IF TRY_CONVERT(INT, @Cod_Client) IS NULL
@@ -920,11 +941,17 @@ AS
 BEGIN
 	BEGIN TRANSACTION;
 	BEGIN TRY
+		
 		--check daca exista masina
 		IF NOT EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina)
 		BEGIN;
 			THROW 50001, 'Masina nu exista', 1;
 		END
+
+		IF EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina AND Activ = 0)
+        BEGIN;
+            THROW 50002, 'Masina este inactiva si nu poate fi programata', 1;
+        END
 
 		DECLARE @IntervalInchis TIME(0) = DATEADD(MINUTE, @DurataProgramare, @IntervalOrar);
 		IF (DATEPART(HOUR, @IntervalInchis) > 17 OR (DATEPART(HOUR, @IntervalInchis) = 17 AND DATEPART(MINUTE, @IntervalInchis) > 0))
@@ -1018,7 +1045,7 @@ CREATE OR ALTER PROCEDURE updateIstoricServiceStatus3
     @DurataReparatie INT
 AS
 BEGIN
-    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 3
+    IF (SELECT Status FROM IstoricService WHERE Cod_Istoric = @Cod_Istoric) <= 4
     BEGIN
         UPDATE IstoricService
         SET Status = 3,
@@ -1045,8 +1072,8 @@ EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '12/08/2024', @Modalita
 EXEC adaugaProgramare @Cod_Masina = 3, @DataProgramare = '13/08/2024', @ModalitateContact = 'email', @Actiune = 'reparatie', @IntervalOrar = '11:30', @DurataProgramare = 30;
 
 SELECT * FROM Programari;
-SELECT * FROM IstoricService;
+SELECT * FROM IstoricService WHERE Cod_Masina = 5;
 
-EXEC updateIstoricServiceStatus2 @Cod_Istoric = 1, @DataPrimire = '10/08/2024', @ProblemeMentionate = 'fara probleme vericule', @ProblemeVizualeConstatate = 'e turbata varule';
-EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = 'i-am facut testul cu moneda', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
+EXEC updateIstoricServiceStatus2 @Cod_Istoric = 1, @DataPrimire = '10/08/2024', @ProblemeMentionate = 'fara', @ProblemeVizualeConstatate = 'e';
+EXEC updateIstoricServiceStatus3 @Cod_Istoric = 1, @OperatiuniEfectuate = 'testul', @PieseSchimbate = ' asta ',  @PieseReparate ='N/A',
   @AlteProblemeDescoperite = 'na' , @AlteReparatii = 'na',@DurataReparatie= 30;

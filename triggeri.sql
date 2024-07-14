@@ -8,6 +8,24 @@ AS
 BEGIN
     IF EXISTS (SELECT 1
         FROM Programari p
+        JOIN inserted i ON p.IntervalOrar = i.IntervalOrar
+                        AND p.DataProgramare = i.DataProgramare
+                        AND p.Cod_Programare != i.Cod_Programare)
+    BEGIN;
+        THROW 50005, 'Exista deja o programare in aceasta data si interval orar', 1;
+        ROLLBACK TRANSACTION;
+    END
+END;
+GO
+
+GO
+CREATE OR ALTER TRIGGER trg_programare_dupe
+ON Programari
+AFTER INSERT
+AS
+BEGIN
+    IF EXISTS (SELECT 1
+        FROM Programari p
         JOIN inserted i ON p.Cod_Masina = i.Cod_Masina
         AND p.DataProgramare = i.DataProgramare
         AND p.IntervalOrar = i.IntervalOrar
@@ -72,6 +90,25 @@ BEGIN
     BEGIN;
         THROW 50001, 'Emailul se afla deja in baza de date', 1;
         ROLLBACK TRANSACTION;
+    END
+END
+GO
+
+
+GO
+CREATE OR ALTER TRIGGER trg_IstoricService
+ON IstoricService
+AFTER UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM IstoricService ist
+        JOIN inserted ins ON ist.Cod_Istoric = ins.Cod_Istoric
+        WHERE ist.Status = 3
+    )
+    BEGIN;
+        THROW 500004, 'Nu se poate actualiza. Masina a fost deja externata din service', 1;
     END
 END
 GO

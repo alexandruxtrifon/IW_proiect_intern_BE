@@ -75,7 +75,7 @@ const actualizareMasina = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-const dezactivareMasina = async (req: Request, res:Response) => {
+const dezactivareMasina = async (req: Request, res:Response): Promise<void> => {
   const {id} = req.params;
 
   try {
@@ -96,7 +96,7 @@ const dezactivareMasina = async (req: Request, res:Response) => {
 }
 };
 
-const getMasini = async (req: Request, res: Response) => {
+const getMasini = async (req: Request, res: Response): Promise<void> => {
   try {
     const pool = await poolPromise;
     const request = pool.request();
@@ -112,7 +112,7 @@ const getMasini = async (req: Request, res: Response) => {
   }
 }
 
-const getMasiniClient = async (req: Request, res: Response) => {
+const getMasiniClient = async (req: Request, res: Response): Promise<void> => {
   const {id} = req.params;
   try {
     const pool = await poolPromise;

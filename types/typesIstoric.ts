@@ -14,7 +14,7 @@ export type Istoric3Body = {
 };
 
 
-export const validateIstoric2Body = (body: any): { isValid: boolean, message?: string } => {
+export const validareIstoric2Body = (body: any): { isValid: boolean, message?: string } => {
     const { DataPrimire, ProblemeMentionate, ProblemeVizualeConstatate }: Istoric2Body = body;
 
     if (!DataPrimire || typeof DataPrimire !== 'string') {
@@ -30,7 +30,7 @@ export const validateIstoric2Body = (body: any): { isValid: boolean, message?: s
     return { isValid: true };
 };
 
-export const validateIstoric3Body = (body: any): { isValid: boolean, message?: string } => {
+export const validareIstoric3Body = (body: any): { isValid: boolean, message?: string } => {
     const { OperatiuniEfectuate, PieseSchimbate, PieseReparate, AlteProblemeDescoperite, AlteReparatii, DurataReparatie }: Istoric3Body = body;
 
     if (!OperatiuniEfectuate || typeof OperatiuniEfectuate !== 'string') {

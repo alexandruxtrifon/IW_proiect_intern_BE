@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateIstoric3Body = exports.validateIstoric2Body = void 0;
-var validateIstoric2Body = function (body) {
+exports.validareIstoric3Body = exports.validareIstoric2Body = void 0;
+var validareIstoric2Body = function (body) {
     var DataPrimire = body.DataPrimire, ProblemeMentionate = body.ProblemeMentionate, ProblemeVizualeConstatate = body.ProblemeVizualeConstatate;
     if (!DataPrimire || typeof DataPrimire !== 'string') {
         return { isValid: false, message: 'DataPrimire este obligatorie si trebuie sa fie de tip string' };
@@ -14,8 +14,8 @@ var validateIstoric2Body = function (body) {
     }
     return { isValid: true };
 };
-exports.validateIstoric2Body = validateIstoric2Body;
-var validateIstoric3Body = function (body) {
+exports.validareIstoric2Body = validareIstoric2Body;
+var validareIstoric3Body = function (body) {
     var OperatiuniEfectuate = body.OperatiuniEfectuate, PieseSchimbate = body.PieseSchimbate, PieseReparate = body.PieseReparate, AlteProblemeDescoperite = body.AlteProblemeDescoperite, AlteReparatii = body.AlteReparatii, DurataReparatie = body.DurataReparatie;
     if (!OperatiuniEfectuate || typeof OperatiuniEfectuate !== 'string') {
         return { isValid: false, message: 'OperatiuniEfectuate este obligatoriu si trebuie sa fie de tip string' };
@@ -37,5 +37,5 @@ var validateIstoric3Body = function (body) {
     }
     return { isValid: true };
 };
-exports.validateIstoric3Body = validateIstoric3Body;
+exports.validareIstoric3Body = validareIstoric3Body;
 //# sourceMappingURL=typesIstoric.js.map
