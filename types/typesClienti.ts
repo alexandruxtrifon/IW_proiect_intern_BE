@@ -12,6 +12,52 @@ export type ClientPatchBody = {
     Email?: string;
 }
 
+export type ClientStatusBody = {
+    Activ: boolean;
+}
+
+export const validareStatusClient = (body: any): {isValid: boolean, message?: string} => {
+    const {Activ}: ClientStatusBody = body;
+    const allowedFields = ['Activ'];
+
+    for (const field in body) {
+        if (!allowedFields.includes(field)) {
+            return { isValid: false, message: `Nu se poate actualiza campul '${field}' în PATCH-ul clientului` };
+        }
+    }
+    if (Activ !== undefined && typeof Activ !== 'boolean') {
+        return { isValid: false, message: 'Statusul trebuie sa aiba valoarea 0/1 sau true/false' };
+    }
+
+    return { isValid: true };
+}
+
+export const validarePatchClient = (body: any): { isValid: boolean, message?: string} => {
+    const {Nume, Prenume, Email}: ClientPatchBody = body;
+    const allowedFields = ['Nume', 'Prenume', 'Email'];
+
+    for (const field in body) {
+        if (!allowedFields.includes(field)) {
+            if(field === 'Activ') {
+                return {isValid: false, message: `Schimbarea statusului nu este permisa in PATCH. Foloseste PUT`};
+            } else {
+                return { isValid: false, message: `Nu se poate actualiza campul '${field}' in PATCH-ul clientului` };
+            }
+        }
+    }
+    if (Nume !== undefined && typeof Nume !== 'string') {
+        return { isValid: false, message: 'Numele trebuie sa fie de tip string' };
+    }
+    if (Prenume !== undefined && typeof Prenume !== 'string') {
+        return { isValid: false, message: 'Prenumele trebuie sa fie de tip string' };
+    }
+    if (Email !== undefined && typeof Email !== 'string') {
+        return { isValid: false, message: 'Email-ul trebuie sa fie de tip string' };
+    }
+
+    return { isValid: true };
+}
+
 export const validareClient = (body: any, isUpdate = false): { isValid: boolean, message?: string } => {
     const { Nume, Prenume, Email, NrTel, Activ }: ClientRequestBody = body;
 

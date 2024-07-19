@@ -97,12 +97,17 @@ var adaugareClient = function (req, res) { return __awaiter(void 0, void 0, void
 }); };
 exports.adaugareClient = adaugareClient;
 var actualizareClient = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var id, _a, Nume, Prenume, Email /*, NrTel, Activ*/, pool, request, err_2;
+    var id, _a, Nume, Prenume, Email /*, NrTel, Activ*/, validare, pool, request, err_2;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
                 id = req.params.id;
                 _a = req.body, Nume = _a.Nume, Prenume = _a.Prenume, Email = _a.Email;
+                validare = (0, typesClienti_1.validarePatchClient)(req.body);
+                if (!validare.isValid) {
+                    res.status(400).json({ error: validare.message });
+                    return [2 /*return*/];
+                }
                 _b.label = 1;
             case 1:
                 _b.trys.push([1, 4, , 5]);
@@ -121,7 +126,7 @@ var actualizareClient = function (req, res) { return __awaiter(void 0, void 0, v
                 //request.input('NrTel', sql.VarChar(sql.MAX), telefoane);
                 //request.input('Activ', sql.Bit, Activ || null);
                 _b.sent();
-                res.status(200).json({ message: 'Clientul a fost actualizat cu succes' });
+                res.status(200).json({ message: 'Clientul a fost actualizat' });
                 return [3 /*break*/, 5];
             case 4:
                 err_2 = _b.sent();
@@ -137,12 +142,18 @@ var actualizareClient = function (req, res) { return __awaiter(void 0, void 0, v
         }
     });
 }); };
-var execStatusClient = function (req, res, procedureName, mesaj) { return __awaiter(void 0, void 0, void 0, function () {
-    var id, pool, request, result, err_3;
+var execStatusClient = function (req, res /*, procedureName: string, mesaj: string*/) { return __awaiter(void 0, void 0, void 0, function () {
+    var id, Activ, validare, pool, request, err_3;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 id = req.params.id;
+                Activ = req.body.Activ;
+                validare = (0, typesClienti_1.validareStatusClient)(req.body);
+                if (!validare.isValid) {
+                    res.status(400).json({ error: validare.message });
+                    return [2 /*return*/];
+                }
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 4, , 5]);
@@ -151,10 +162,13 @@ var execStatusClient = function (req, res, procedureName, mesaj) { return __awai
                 pool = _a.sent();
                 request = pool.request();
                 request.input('Cod_Client', sql.Int, id);
-                return [4 /*yield*/, request.execute(procedureName)];
+                request.input('Activ', sql.Bit, Activ);
+                return [4 /*yield*/, request.execute('actualizareStatusClient')];
             case 3:
-                result = _a.sent();
-                res.status(200).json({ message: mesaj });
+                _a.sent();
+                // adaugare parametru pentru procedura stocata DONE
+                // folosirea unei singure proceduri + o singura ruta pentru PATCH actualizare status DONE
+                res.status(200).json({ message: 'Statusul clientului a fost actualizat' });
                 return [3 /*break*/, 5];
             case 4:
                 err_3 = _a.sent();
@@ -170,10 +184,12 @@ var execStatusClient = function (req, res, procedureName, mesaj) { return __awai
         }
     });
 }); };
-var dezactivareClient = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+var actualizareStatusClient = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, execStatusClient(req, res, 'dezactivareClient', 'Clientul a fost dezactivat')];
+            case 0:
+                console.log(JSON.stringify(req.body));
+                return [4 /*yield*/, execStatusClient(req, res)];
             case 1:
                 _a.sent();
                 return [2 /*return*/];
@@ -183,7 +199,9 @@ var dezactivareClient = function (req, res) { return __awaiter(void 0, void 0, v
 var activareClient = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, execStatusClient(req, res, 'activareClient', 'Clientul a fost activat')];
+            case 0:
+                console.log(JSON.stringify(req.body));
+                return [4 /*yield*/, execStatusClient(req, res)];
             case 1:
                 _a.sent();
                 return [2 /*return*/];
@@ -219,33 +237,82 @@ var execGetClienti = function (req, res, procedureName) { return __awaiter(void 
         }
     });
 }); };
-var execGetTelefoane = function (req, res, procedureName) { return __awaiter(void 0, void 0, void 0, function () {
-    var id, pool, request, result, err_5;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
+var getClientiquery = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var pool, request, query, queryParams, cond, _i, _a, _b, key, value, result, err_5;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
             case 0:
-                id = req.params.id;
-                _a.label = 1;
-            case 1:
-                _a.trys.push([1, 4, , 5]);
+                _c.trys.push([0, 3, , 4]);
                 return [4 /*yield*/, poolPromise];
-            case 2:
-                pool = _a.sent();
+            case 1:
+                pool = _c.sent();
                 request = pool.request();
-                request.input('Cod_Client', sql.Int, id);
-                return [4 /*yield*/, request.execute(procedureName)];
+                query = 'SELECT * FROM Clienti';
+                queryParams = req.query;
+                cond = [];
+                for (_i = 0, _a = Object.entries(queryParams); _i < _a.length; _i++) {
+                    _b = _a[_i], key = _b[0], value = _b[1];
+                    if (value) {
+                        cond.push("".concat(key, " LIKE @").concat(key));
+                        request.input(key, sql.VarChar, "%".concat(value, "%"));
+                    }
+                }
+                if (cond.length > 0) {
+                    query += ' WHERE ' + cond.join(' AND ');
+                }
+                return [4 /*yield*/, request.query(query)];
+            case 2:
+                result = _c.sent();
+                res.status(200).json(result.recordset);
+                return [3 /*break*/, 4];
             case 3:
-                result = _a.sent();
-                res.status(200).send(result.recordset);
-                return [3 /*break*/, 5];
-            case 4:
-                err_5 = _a.sent();
+                err_5 = _c.sent();
                 console.error(err_5);
                 if (err_5 instanceof Error) {
-                    res.status(500).send("A avut loc o eroare: ".concat(err_5.message));
+                    res.status(500).json({ error: "eroare la getClienti: ".concat(err_5.message) });
                 }
                 else {
                     console.log(err_5);
+                }
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); };
+var execGetTelefoane = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var id, queryParams, pool, request, query, _i, _a, _b, key, value, result, err_6;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
+            case 0:
+                id = req.params.id;
+                queryParams = req.query;
+                _c.label = 1;
+            case 1:
+                _c.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, poolPromise];
+            case 2:
+                pool = _c.sent();
+                request = pool.request();
+                request.input('Cod_Client', sql.Int, id);
+                query = "SELECT * FROM Telefon WHERE Cod_Client = @Cod_Client";
+                for (_i = 0, _a = Object.entries(queryParams); _i < _a.length; _i++) {
+                    _b = _a[_i], key = _b[0], value = _b[1];
+                    query += " AND ".concat(key, " LIKE @").concat(key);
+                    request.input('NrTel', sql.VarChar, "%".concat(value, "%"));
+                }
+                return [4 /*yield*/, request.query(query)];
+            case 3:
+                result = _c.sent();
+                res.status(200).send(result.recordset);
+                return [3 /*break*/, 5];
+            case 4:
+                err_6 = _c.sent();
+                console.error(err_6);
+                if (err_6 instanceof Error) {
+                    res.status(500).send("A avut loc o eroare: ".concat(err_6.message));
+                }
+                else {
+                    console.log(err_6);
                 }
                 return [3 /*break*/, 5];
             case 5: return [2 /*return*/];
@@ -253,7 +320,7 @@ var execGetTelefoane = function (req, res, procedureName) { return __awaiter(voi
     });
 }); };
 var execActualizareTelefonClient = function (req, res, procedureName) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, idClient, idTelefon, NrTel, pool, request, result, err_6;
+    var _a, idClient, idTelefon, NrTel, pool, request, result, err_7;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -268,7 +335,7 @@ var execActualizareTelefonClient = function (req, res, procedureName) { return _
                 request = pool.request();
                 request.input('Cod_Client', sql.Int, idClient);
                 request.input('Cod_Telefon', sql.Int, idTelefon);
-                request.input('NrTel', sql.VarChar(50), NrTel);
+                request.input('NrTel', sql.VarChar(sql.MAX), NrTel);
                 return [4 /*yield*/, request.execute(procedureName)];
             case 3:
                 result = _b.sent();
@@ -276,13 +343,13 @@ var execActualizareTelefonClient = function (req, res, procedureName) { return _
                 res.status(200).json({ message: 'Telefonul a fost actualizat' });
                 return [3 /*break*/, 5];
             case 4:
-                err_6 = _b.sent();
-                console.error(err_6);
-                if (err_6 instanceof Error) {
-                    res.status(500).send("A avut loc o eroare: ".concat(err_6.message));
+                err_7 = _b.sent();
+                console.error(err_7);
+                if (err_7 instanceof Error) {
+                    res.status(500).send("A avut loc o eroare: ".concat(err_7.message));
                 }
                 else {
-                    console.log(err_6);
+                    console.log(err_7);
                 }
                 return [3 /*break*/, 5];
             case 5: return [2 /*return*/];
@@ -324,7 +391,7 @@ var getTelefonClient = function (req, res) { return __awaiter(void 0, void 0, vo
         switch (_a.label) {
             case 0: 
             //const {id} = req.params;
-            return [4 /*yield*/, execGetTelefoane(req, res, 'getTelefoaneClient')];
+            return [4 /*yield*/, execGetTelefoane(req, res)];
             case 1:
                 //const {id} = req.params;
                 _a.sent();
@@ -345,12 +412,13 @@ var actualizareTelefonClient = function (req, res) { return __awaiter(void 0, vo
 module.exports = {
     adaugareClient: exports.adaugareClient,
     actualizareClient: actualizareClient,
-    dezactivareClient: dezactivareClient,
+    actualizareStatusClient: actualizareStatusClient,
     getClienti: getClienti,
     getClientiActivi: getClientiActivi,
     getClientiInactivi: getClientiInactivi,
     getTelefonClient: getTelefonClient,
     actualizareTelefonClient: actualizareTelefonClient,
-    activareClient: activareClient
+    activareClient: activareClient,
+    getClientiquery: getClientiquery
 };
 //# sourceMappingURL=controllerClienti.js.map

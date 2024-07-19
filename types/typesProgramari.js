@@ -1,6 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validareProgramare = void 0;
+exports.validareProgramare = exports.formatProgramari = void 0;
+var moment = require("moment");
+var formatProgramari = function (programari) {
+    return programari.map(function (programare) { return ({
+        NumeClient: programare.NumeClient,
+        DataProgramare: moment(programare.DataProgramare).format('DD/MM/YYYY'),
+        ModalitateContact: programare.ModalitateContact,
+        Actiune: programare.Actiune,
+        IntervalOrar: "".concat(moment(programare.IntervalOrar).format('HH:mm'), " - ").concat(moment(programare.IntervalOrar).add(programare.DurataProgramare, 'minutes').format('HH:mm')),
+        DurataProgramare: programare.DurataProgramare,
+        ModelMasina: programare.Model,
+        NrInmatriculare: programare.NrInmatriculare
+    }); });
+};
+exports.formatProgramari = formatProgramari;
 var validareProgramare = function (body) {
     var Cod_Masina = body.Cod_Masina, DataProgramare = body.DataProgramare, ModalitateContact = body.ModalitateContact, Actiune = body.Actiune, IntervalOrar = body.IntervalOrar, DurataProgramare = body.DurataProgramare;
     if (typeof Cod_Masina !== 'number') {

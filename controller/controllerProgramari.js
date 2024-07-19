@@ -35,6 +35,17 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var _a = require('../config'), sql = _a.sql, poolPromise = _a.poolPromise;
 var typesProgramari_1 = require("../types/typesProgramari");
@@ -82,8 +93,73 @@ var adaugareProgramare = function (req, res) { return __awaiter(void 0, void 0, 
         }
     });
 }); };
+var execGetProgramariQuery = function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var pool, request, query, _a, dataprogramare, queryParams, cond, formatDate, _b, startDate, endDate, formattedStartDate, formattedEndDate, formattedDate, _i, _c, _d, key, value, result, formattedResults, err_2;
+    return __generator(this, function (_e) {
+        switch (_e.label) {
+            case 0:
+                _e.trys.push([0, 3, , 4]);
+                return [4 /*yield*/, poolPromise];
+            case 1:
+                pool = _e.sent();
+                request = pool.request();
+                query = "\n          SELECT\n                CONCAT(c.Nume, ' ', c.Prenume) AS NumeClient, m.Model AS ModelMasina, m.NrInmatriculare, p.DataProgramare, p.ModalitateContact, p.Actiune, p.IntervalOrar,               p.DurataProgramare FROM Programari p JOIN Masini m ON p.Cod_Masina = m.Cod_Masina JOIN Clienti c ON m.Cod_Client = c.Cod_Client";
+                _a = req.query, dataprogramare = _a.dataprogramare, queryParams = __rest(_a, ["dataprogramare"]);
+                cond = [];
+                formatDate = function (dateString) {
+                    var _a = dateString.split(/[-/.]/), day = _a[0], month = _a[1], year = _a[2];
+                    if (!day || !month || !year) {
+                        res.status(400).send('Formatul datei este invalid. Foloseste DD/MM/YYYY');
+                    }
+                    return "".concat(year, "-").concat(month, "-").concat(day);
+                };
+                if (typeof dataprogramare === 'string') {
+                    _b = dataprogramare.split('-').map(function (d) { return d.trim(); }), startDate = _b[0], endDate = _b[1];
+                    if (startDate && endDate) {
+                        formattedStartDate = formatDate(startDate);
+                        formattedEndDate = formatDate(endDate);
+                        cond.push("p.DataProgramare BETWEEN @StartDate AND @EndDate");
+                        request.input('StartDate', sql.Date, formattedStartDate);
+                        request.input('EndDate', sql.Date, formattedEndDate);
+                    }
+                    else {
+                        formattedDate = formatDate(startDate);
+                        cond.push("p.DataProgramare = @Date");
+                        request.input('Date', sql.Date, formattedDate);
+                    }
+                }
+                for (_i = 0, _c = Object.entries(queryParams); _i < _c.length; _i++) {
+                    _d = _c[_i], key = _d[0], value = _d[1];
+                    if (typeof value === 'string') {
+                        cond.push("".concat(key, " LIKE @").concat(key));
+                        request.input(key, sql.VarChar, "%".concat(value, "%"));
+                    }
+                }
+                if (cond.length > 0) {
+                    query += ' WHERE ' + cond.join(' AND ');
+                }
+                return [4 /*yield*/, request.query(query)];
+            case 2:
+                result = _e.sent();
+                formattedResults = (0, typesProgramari_1.formatProgramari)(result.recordset);
+                res.status(200).json(formattedResults);
+                return [3 /*break*/, 4];
+            case 3:
+                err_2 = _e.sent();
+                console.error(err_2);
+                if (err_2 instanceof Error) {
+                    res.status(500).send("eroare la cautarea programarilor: ".concat(err_2.message));
+                }
+                else {
+                    console.log(err_2);
+                }
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); };
 var execGetProgramari = function (req, res, procedureName, params) { return __awaiter(void 0, void 0, void 0, function () {
-    var pool, request_1, result, err_2;
+    var pool, request_1, result, err_3;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -103,13 +179,13 @@ var execGetProgramari = function (req, res, procedureName, params) { return __aw
                 res.status(200).send(result.recordset);
                 return [3 /*break*/, 4];
             case 3:
-                err_2 = _a.sent();
-                console.error(err_2);
-                if (err_2 instanceof Error) {
-                    res.status(500).send("A avut loc o eroare la executarea procedurii ".concat(procedureName, ": ").concat(err_2.message));
+                err_3 = _a.sent();
+                console.error(err_3);
+                if (err_3 instanceof Error) {
+                    res.status(500).send("A avut loc o eroare la executarea procedurii ".concat(procedureName, ": ").concat(err_3.message));
                 }
                 else {
-                    console.log(err_2);
+                    console.log(err_3);
                 }
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
@@ -148,6 +224,7 @@ var getProgramariData = function (req, res) { return __awaiter(void 0, void 0, v
 module.exports = {
     adaugareProgramare: adaugareProgramare,
     getProgramari: getProgramari,
-    getProgramariData: getProgramariData
+    getProgramariData: getProgramariData,
+    execGetProgramariQuery: execGetProgramariQuery
 };
 //# sourceMappingURL=controllerProgramari.js.map

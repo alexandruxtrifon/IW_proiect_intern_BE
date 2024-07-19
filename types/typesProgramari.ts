@@ -1,3 +1,5 @@
+import moment = require("moment");
+
 export type ProgramareRequestBody = {
     Cod_Masina: number;
     DataProgramare: string;
@@ -6,6 +8,41 @@ export type ProgramareRequestBody = {
     IntervalOrar: string;
     DurataProgramare: number;
 };
+
+export type Programare = {
+    NumeClient: string;
+    DataProgramare: string;
+    ModalitateContact: string;
+    Actiune: string;
+    IntervalOrar: string;
+    DurataProgramare: number;
+    Model: string;
+    NrInmatriculare: string;
+}
+
+export type FormattedProgramare = {
+    NumeClient: string;
+    DataProgramare: string;
+    ModalitateContact: string;
+    Actiune: string;
+    IntervalOrar: string;
+    DurataProgramare: number;
+    ModelMasina: string;
+    NrInmatriculare: string;
+}
+
+export const formatProgramari = (programari: Programare[]): FormattedProgramare[] => {
+    return programari.map(programare => ({
+        NumeClient: programare.NumeClient,
+        DataProgramare: moment(programare.DataProgramare).format('DD/MM/YYYY'),
+        ModalitateContact: programare.ModalitateContact,
+        Actiune: programare.Actiune,
+        IntervalOrar: `${moment(programare.IntervalOrar).format('HH:mm')} - ${moment(programare.IntervalOrar).add(programare.DurataProgramare, 'minutes').format('HH:mm')}`,
+        DurataProgramare: programare.DurataProgramare,
+        ModelMasina: programare.Model,
+        NrInmatriculare: programare.NrInmatriculare
+    }));
+}
 
 export const validareProgramare = (body: any): { isValid: boolean, message?: string } => {
     const { Cod_Masina, DataProgramare, ModalitateContact, Actiune, IntervalOrar, DurataProgramare }: ProgramareRequestBody = body;

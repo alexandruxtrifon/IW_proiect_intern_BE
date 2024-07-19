@@ -1,5 +1,5 @@
 const {sql, poolPromise} = require('../config');
-import { ProgramareRequestBody, validareProgramare } from "../types/typesProgramari";
+import { formatProgramari, Programare, ProgramareRequestBody, validareProgramare } from "../types/typesProgramari";
 import { Request, Response} from 'express';
 
 
@@ -35,6 +35,65 @@ const adaugareProgramare = async (req: Request, res: Response): Promise<void> =>
         }
     }
   };
+
+const execGetProgramariQuery = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const pool = await poolPromise;
+      const request = pool.request();
+      
+      let query = `
+          SELECT
+                CONCAT(c.Nume, ' ', c.Prenume) AS NumeClient, m.Model AS ModelMasina, m.NrInmatriculare, p.DataProgramare, p.ModalitateContact, p.Actiune, p.IntervalOrar, \
+              p.DurataProgramare FROM Programari p JOIN Masini m ON p.Cod_Masina = m.Cod_Masina JOIN Clienti c ON m.Cod_Client = c.Cod_Client`;
+  
+      const { dataprogramare, ...queryParams } = req.query;
+      const cond: string[] = [];
+  
+      const formatDate = (dateString: string): string => {
+          const [day, month, year] = dateString.split(/[-/.]/);
+          if (!day || !month || !year) {
+            res.status(400).send('Formatul datei este invalid. Foloseste DD/MM/YYYY')}
+          return `${year}-${month}-${day}`;
+      };
+  
+      if (typeof dataprogramare === 'string') {
+          const [startDate, endDate] = dataprogramare.split('-').map(d => d.trim());
+  
+          if (startDate && endDate) {
+              const formattedStartDate = formatDate(startDate);
+              const formattedEndDate = formatDate(endDate);
+              cond.push(`p.DataProgramare BETWEEN @StartDate AND @EndDate`);
+              request.input('StartDate', sql.Date, formattedStartDate);
+              request.input('EndDate', sql.Date, formattedEndDate);
+          } else {
+              const formattedDate = formatDate(startDate);
+              cond.push(`p.DataProgramare = @Date`);
+              request.input('Date', sql.Date, formattedDate);
+          }
+      }
+      for (const [key, value] of Object.entries(queryParams)) {
+          if (typeof value === 'string') {
+              cond.push(`${key} LIKE @${key}`);
+              request.input(key, sql.VarChar, `%${value}%`);
+          }
+      }
+  
+      if (cond.length > 0) {
+          query += ' WHERE ' + cond.join(' AND ');
+      }
+  
+      const result = await request.query(query);
+      const formattedResults = formatProgramari(result.recordset);
+      res.status(200).json(formattedResults);
+  } catch (err) {
+      console.error(err);
+      if (err instanceof Error){
+      res.status(500).send(`eroare la cautarea programarilor: ${err.message}`);
+      } else {
+      console.log(err);
+      }
+  }
+}
 
 const execGetProgramari = async (req: Request, res: Response, procedureName: string, params?: { name: string, type: any, value: any }[]): Promise<void> => {
   try {
@@ -78,5 +137,6 @@ const getProgramariData = async (req: Request, res: Response): Promise<void> => 
 module.exports = {
     adaugareProgramare,
     getProgramari,
-    getProgramariData
-};
+    getProgramariData,
+    execGetProgramariQuery
+  };
