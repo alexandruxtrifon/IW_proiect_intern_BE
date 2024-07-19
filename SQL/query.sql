@@ -926,7 +926,6 @@ BEGIN
 	BEGIN TRANSACTION;
 	BEGIN TRY
 		
-		--check daca exista masina
 		IF NOT EXISTS (SELECT 1 FROM Masini WHERE Cod_Masina = @Cod_Masina)
 		BEGIN;
 			THROW 50001, 'Masina nu exista', 1;
@@ -943,7 +942,6 @@ BEGIN
 			THROW 50001, 'Durata programarii depaseste ora inchiderii 17:00', 1;
 		END
 
-		-- ADAUGAT ULTERIOR - prevenire suprapunere la programari
 		IF EXISTS (SELECT 1 FROM Programari WHERE DataProgramare = @DataProgramare AND @IntervalOrar < DATEADD(MINUTE, DurataProgramare, IntervalOrar)
 		AND DATEADD(MINUTE, @DurataProgramare, @IntervalOrar) > IntervalOrar)
 		BEGIN;
@@ -955,7 +953,6 @@ BEGIN
             THROW 50003, 'Intervalul orar trebuie sa inceapa la o ora care este un multiplu de 30 de minute', 1;
         END
 
-		--BEGIN TRANSACTION;
 		IF @ModalitateContact NOT IN ('telefon', 'email', 'fizic')
 		BEGIN;
 		THROW 50001, 'Modalitatea de contact trebuie sa fie ''telefon'', ''email'' sau ''fizic''', 1;
@@ -971,13 +968,11 @@ BEGIN
 		IF @DurataProgramare % 30 != 0 OR @DurataProgramare <= 0
 		BEGIN;
 			THROW 50004, 'Programarea trebuie sa dureze minim 30 de minute si sa fie multiplu de 30 de minute', 1;
-			--PRINT 'Programarea trebuie sa dureze minim 30 de minute si sa fie multiplu de 30 de minute'
 		END
 
 		INSERT INTO Programari (Cod_Masina, DataProgramare, ModalitateContact, Actiune, IntervalOrar, DurataProgramare)
 		VALUES (@Cod_Masina, @DataProgramare, @ModalitateContact, @Actiune, @IntervalOrar, @DurataProgramare)
 
-		--adaugat ulterior
 		DECLARE @Cod_Programare INT = SCOPE_IDENTITY();
 		INSERT INTO IstoricService (Cod_Programare, Cod_Masina, Status)
 		VALUES (@Cod_programare, @Cod_Masina, 1)

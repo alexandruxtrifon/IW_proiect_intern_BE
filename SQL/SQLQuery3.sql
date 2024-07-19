@@ -5,8 +5,6 @@ CREATE OR ALTER FUNCTION validareClientUpdate(
     @Nume VARCHAR(MAX), 
     @Prenume VARCHAR(MAX), 
     @Email VARCHAR(MAX)
-    --@Activ BIT, 
-    --@NrTel VARCHAR(MAX)
 )
 RETURNS VARCHAR(MAX)
 AS
@@ -21,12 +19,6 @@ BEGIN
         SET @Error = 'Numele poate fi alcatuit numai din litere'
         RETURN @Error;
     END
-
-    --IF @Activ IS NOT NULL AND @Activ NOT IN (0, 1)
-    --BEGIN;
-    --    SET @Error = 'Trebuie specificat daca clientul este Activ(1) sau Inactiv(0)';
-    --    RETURN @Error;
-    --END
 
     IF @Nume IS NOT NULL AND LEN(@Nume) < 3 
     BEGIN;

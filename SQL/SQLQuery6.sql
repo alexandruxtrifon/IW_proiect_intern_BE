@@ -24,8 +24,6 @@ VALUES
 SELECT * FROM ClientContactInfo;
 
 SELECT 
-    --p.Cod_Programare,
-    --p.Cod_Masina,
 	CONCAT(c.Nume, ' ', c.Prenume) AS Client,
 	m.Model AS ModelMasina,
 	m.NrInmatriculare,
