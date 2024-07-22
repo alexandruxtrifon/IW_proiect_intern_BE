@@ -106,18 +106,33 @@ var execGetProgramariQuery = function (req, res) { return __awaiter(void 0, void
                 query = "\n          SELECT\n                CONCAT(c.Nume, ' ', c.Prenume) AS NumeClient, m.Model AS ModelMasina, m.NrInmatriculare, p.DataProgramare, p.ModalitateContact, p.Actiune, p.IntervalOrar,               p.DurataProgramare FROM Programari p JOIN Masini m ON p.Cod_Masina = m.Cod_Masina JOIN Clienti c ON m.Cod_Client = c.Cod_Client";
                 _a = req.query, dataprogramare = _a.dataprogramare, queryParams = __rest(_a, ["dataprogramare"]);
                 cond = [];
-                formatDate = function (dateString) {
-                    var _a = dateString.split(/[-/.]/), day = _a[0], month = _a[1], year = _a[2];
-                    if (!day || !month || !year) {
-                        res.status(400).send('Formatul datei este invalid. Foloseste DD/MM/YYYY');
+                formatDate = function (dateString, isEndDate) {
+                    if (isEndDate === void 0) { isEndDate = false; }
+                    var parts = dateString.split(/[-/.]/);
+                    if (parts.length === 3) {
+                        var day = parts[0], month = parts[1], year = parts[2];
+                        return "".concat(year, "-").concat(month, "-").concat(day);
                     }
-                    return "".concat(year, "-").concat(month, "-").concat(day);
+                    else if (parts.length === 2) {
+                        var month = parts[0], year = parts[1];
+                        var lastDay = new Date(Number(year), Number(month), 0).getDate();
+                        return isEndDate ? "".concat(year, "-").concat(month, "-").concat(lastDay) : "".concat(year, "-").concat(month, "-01");
+                    }
+                    else if (parts.length === 1) {
+                        var year = parts[0];
+                        return isEndDate ? "".concat(year, "-12-31") : "".concat(year, "-01-01");
+                    }
+                    else {
+                        throw new Error('Formatul datei este invalid. Foloseste DD/MM/YYYY, MM/YYYY sau YYYY');
+                    }
                 };
                 if (typeof dataprogramare === 'string') {
-                    _b = dataprogramare.split('-').map(function (d) { return d.trim(); }), startDate = _b[0], endDate = _b[1];
+                    _b = dataprogramare.split('to').map(function (d) { return d.trim(); }), startDate = _b[0], endDate = _b[1];
                     if (startDate && endDate) {
                         formattedStartDate = formatDate(startDate);
-                        formattedEndDate = formatDate(endDate);
+                        formattedEndDate = formatDate(endDate, true);
+                        //console.log(formattedStartDate);
+                        //console.log(formattedEndDate);
                         cond.push("p.DataProgramare BETWEEN @StartDate AND @EndDate");
                         request.input('StartDate', sql.Date, formattedStartDate);
                         request.input('EndDate', sql.Date, formattedEndDate);

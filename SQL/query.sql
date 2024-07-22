@@ -1,6 +1,8 @@
 ﻿USE [internship2024]
 
 ALTER USER user_internship2024 WITH DEFAULT_SCHEMA = intern;
+
+
 DBCC USEROPTIONS;
 SET DATEFORMAT dmy;
 
@@ -233,6 +235,9 @@ BEGIN CATCH
 PRINT 'Eroare la crearea tabelului Telefon: ' + ERROR_MESSAGE();
 END CATCH;
 
+ALTER TABLE Telefon
+	ALTER COLUMN NrTel typeTelefon;
+
 BEGIN TRY
 CREATE TABLE Masini(
 Cod_Masina INT PRIMARY KEY IDENTITY(1,1),
@@ -337,6 +342,7 @@ CREATE OR ALTER PROCEDURE InsertClient2
 @Prenume VARCHAR(30),
 @Email VARCHAR(50) = NULL,
 @NrTel VARCHAR(MAX) = NULL,
+--@NrTel typeTelefon = NULL,
 @Activ BIT
 AS
 BEGIN

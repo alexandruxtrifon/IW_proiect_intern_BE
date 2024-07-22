@@ -49,19 +49,32 @@ const execGetProgramariQuery = async (req: Request, res: Response): Promise<void
       const { dataprogramare, ...queryParams } = req.query;
       const cond: string[] = [];
   
-      const formatDate = (dateString: string): string => {
-          const [day, month, year] = dateString.split(/[-/.]/);
-          if (!day || !month || !year) {
-            res.status(400).send('Formatul datei este invalid. Foloseste DD/MM/YYYY')}
-          return `${year}-${month}-${day}`;
+      const formatDate = (dateString: string, isEndDate: boolean = false): string => {
+          const parts = dateString.split(/[-/.]/);
+          if (parts.length === 3){
+            const [day, month, year] = parts;
+            return `${year}-${month}-${day}`;
+          } else if (parts.length === 2) {
+            const [month, year] = parts;
+            const lastDay = new Date(Number(year), Number(month), 0).getDate();
+            return isEndDate ? `${year}-${month}-${lastDay}`: `${year}-${month}-01`;
+          } else if (parts.length === 1) {
+            const [year] = parts;
+            return isEndDate ? `${year}-12-31` : `${year}-01-01`;
+          } else {
+            throw new Error('Formatul datei este invalid. Foloseste DD/MM/YYYY, MM/YYYY sau YYYY');
+          }
+
       };
   
       if (typeof dataprogramare === 'string') {
-          const [startDate, endDate] = dataprogramare.split('-').map(d => d.trim());
+          const [startDate, endDate] = dataprogramare.split('to').map(d => d.trim());
   
           if (startDate && endDate) {
               const formattedStartDate = formatDate(startDate);
-              const formattedEndDate = formatDate(endDate);
+              const formattedEndDate = formatDate(endDate, true);
+              //console.log(formattedStartDate);
+              //console.log(formattedEndDate);
               cond.push(`p.DataProgramare BETWEEN @StartDate AND @EndDate`);
               request.input('StartDate', sql.Date, formattedStartDate);
               request.input('EndDate', sql.Date, formattedEndDate);
