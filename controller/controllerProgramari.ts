@@ -106,7 +106,7 @@ const execGetProgramariQuery = async (req: Request, res: Response): Promise<void
       console.log(err);
       }
   }
-}
+} 
 
 const execGetProgramari = async (req: Request, res: Response, procedureName: string, params?: { name: string, type: any, value: any }[]): Promise<void> => {
   try {
